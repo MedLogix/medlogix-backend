@@ -1,0 +1,10 @@
+services:
+  app:
+    image: ayush1018/medlogix-backend:latest
+    volumes:
+      - .env:/app/.env
+    working_dir: /app
+    ports:
+      - "8080:8080"
+    command: ["npm", "start"]
+    restart: unless-stopped

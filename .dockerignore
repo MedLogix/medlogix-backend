@@ -1,0 +1,5 @@
+node_modules
+.husky
+logs
+.env
+.env.example
