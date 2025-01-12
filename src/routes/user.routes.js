@@ -62,7 +62,7 @@ router
   .route("/resend-email-verification/:userId")
   .post(resendEmailVerification);
 
-import "../passport/index.js"; // Importing passport configuration
+// import "../passport/index.js"; // Importing passport configuration
 
 // SSO routes
 router.route("/google").get(
