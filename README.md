@@ -1,4 +1,4 @@
-# MockVerse Backend
+# Medlogix Backend
 
 This is a Node.js project.
 
@@ -8,9 +8,6 @@ This is a Node.js project.
 
 1. Ensure you have **Node.js** (v16+) and **npm** or **yarn** installed.
 2. Clone the repository:
-   ```bash
-   git clone https://github.com/MockVerseAI/mockverse-backend.git
-   ```
 3. Create a `.env` file in the root directory. Use the `.env.example` file as a template.
 
 ### Install Dependencies
