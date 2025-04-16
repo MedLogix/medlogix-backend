@@ -6,10 +6,6 @@ import { USER_TEMPORARY_TOKEN_EXPIRY } from "../utils/constants.js";
 
 const adminSchema = new Schema(
   {
-    avatar: {
-      type: String,
-      default: `https://via.placeholder.com/200x200.png`,
-    },
     username: {
       type: String,
       required: true,

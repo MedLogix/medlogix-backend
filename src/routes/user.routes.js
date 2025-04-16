@@ -1,10 +1,8 @@
 import { Router } from "express";
-import passport from "passport";
 import {
   changeCurrentPassword,
   forgotPasswordRequest,
   getCurrentUser,
-  handleSocialLogin,
   loginUser,
   logoutUser,
   refreshAccessToken,
@@ -61,21 +59,5 @@ router
 router
   .route("/resend-email-verification/:userId")
   .post(resendEmailVerification);
-
-// import "../passport/index.js"; // Importing passport configuration
-
-// SSO routes
-router.route("/google").get(
-  passport.authenticate("google", {
-    scope: ["profile", "email"],
-  }),
-  (req, res) => {
-    res.send("redirecting to google...");
-  }
-);
-
-router
-  .route("/google/callback")
-  .get(passport.authenticate("google"), handleSocialLogin);
 
 export default router;

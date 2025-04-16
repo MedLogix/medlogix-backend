@@ -2,11 +2,7 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import mongoose, { Schema } from "mongoose";
-import {
-  AvailableSocialLogins,
-  USER_TEMPORARY_TOKEN_EXPIRY,
-  UserLoginType,
-} from "../utils/constants.js";
+import { USER_TEMPORARY_TOKEN_EXPIRY } from "../utils/constants.js";
 
 const userSchema = new Schema(
   {
@@ -38,11 +34,6 @@ const userSchema = new Schema(
     password: {
       type: String,
       required: [true, "Password is required"],
-    },
-    loginType: {
-      type: String,
-      enum: AvailableSocialLogins,
-      default: UserLoginType.EMAIL_PASSWORD,
     },
     isEmailVerified: {
       type: Boolean,

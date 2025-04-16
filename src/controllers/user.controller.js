@@ -11,7 +11,6 @@ import {
   forgotPasswordMailgenContent,
   sendEmail,
 } from "../utils/mail.js";
-import { upload } from "../utils/upload.js";
 
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
@@ -461,49 +460,6 @@ const handleSocialLogin = asyncHandler(async (req, res) => {
     );
 });
 
-const updateUserAvatar = asyncHandler(async (req, res) => {
-  // Check if user has uploaded an avatar
-  if (!req.file?.filename) {
-    throw new ApiError(400, "Avatar image is required");
-  }
-
-  const file = req.file;
-
-  const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
-  if (file.size > MAX_SIZE) {
-    throw new ApiError(
-      409,
-      "Uploaded file exceeds the maximum size of 10 MB",
-      []
-    );
-  }
-
-  const key = `avatar/${Date.now()}-${file.originalname}`;
-
-  // get avatar file system url and local path
-  const avatarUrl = await upload(file, key);
-
-  let updatedUser = await User.findByIdAndUpdate(
-    req.user._id,
-    {
-      $set: {
-        // set the newly uploaded avatar
-        avatar: {
-          url: avatarUrl,
-          localPath: "",
-        },
-      },
-    },
-    { new: true }
-  ).select(
-    "-password -refreshToken -emailVerificationToken -emailVerificationExpiry"
-  );
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, updatedUser, "Avatar updated successfully"));
-});
-
 export {
   assignRole,
   changeCurrentPassword,
@@ -516,6 +472,5 @@ export {
   registerUser,
   resendEmailVerification,
   resetForgottenPassword,
-  updateUserAvatar,
   verifyEmail,
 };
