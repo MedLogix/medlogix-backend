@@ -3,17 +3,18 @@ import "dotenv/config";
 import express from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
-import passport from "passport";
 
 import connectDB from "./db/index.js";
 import { errorHandler } from "./middlewares/error.middleware.js";
 
 // routers
 import cookieParser from "cookie-parser";
-import session from "express-session";
-import adminRouter from "./routes/admin.routes.js";
+import authRouter from "./routes/auth.routes.js";
 import heathcheckRouter from "./routes/healthcheck.routes.js";
-import userRouter from "./routes/user.routes.js";
+import requirementRouter from "./routes/requirement.routes.js";
+import logisticRouter from "./routes/logistic.routes.js";
+import warehouseStockRouter from "./routes/warehouseStock.routes.js";
+import institutionStockRouter from "./routes/institutionStock.routes.js";
 import { ApiError } from "./utils/ApiError.js";
 
 const app = express();
@@ -51,21 +52,15 @@ app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(express.static("public"));
 app.use(cookieParser());
 
-// required for passport
-app.use(
-  session({
-    secret: process.env.EXPRESS_SESSION_SECRET,
-    resave: true,
-    saveUninitialized: true,
-  })
-); // session secret
-app.use(passport.initialize());
-app.use(passport.session()); // persistent login sessions
-
 // routes
 app.use("/api/v1/healthcheck", heathcheckRouter);
-app.use("/api/v1/user", userRouter);
-app.use("/api/v1/admin", adminRouter);
+app.use("/api/v1/auth", authRouter);
+
+// Mount new application routes
+app.use("/api/v1/requirements", requirementRouter);
+app.use("/api/v1/logistics", logisticRouter);
+app.use("/api/v1/warehouse-stock", warehouseStockRouter);
+app.use("/api/v1/institution-stock", institutionStockRouter);
 
 app.use(errorHandler);
 
