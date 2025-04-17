@@ -1,0 +1,3492 @@
+openapi: 3.0.0
+info:
+  title: MedLogix API
+  version: 1.0.0
+  description: API documentation for the MedLogix backend application.
+servers:
+  - url: http://localhost:3000 # Default development server
+    description: Development server
+paths:
+  /institution-stock:
+    post:
+      tags:
+        - Institution Stock
+      summary: Add manual stock batch(es) for a specific medicine
+      description: >
+        Adds one or more stock batches for a given medicine ID to the institution's inventory.
+        If a record for the medicine already exists, the new batches are added; otherwise, a new record is created.
+      security:
+        - bearerAuth: []
+      requestBody:
+        description: Medicine ID and array of new stock batches.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                medicineId:
+                  $ref: '#/components/schemas/ObjectID'
+                stocks:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/InstitutionStockBatchInput' # Use input schema
+                  minItems: 1
+              required:
+                - medicineId
+                - stocks
+            example:
+              medicineId: "60d0fe4f5311236168a109cc" # Example Medicine ID
+              stocks:
+                -
+                  warehouseId: "60d0fe4f5311236168a109ce" # Example Warehouse ID
+                  batchName: "BATCH54321"
+                  expiryDate: "2025-12-31T00:00:00Z"
+                  quantityReceived: 100 # Total Strips received
+                  purchasePrice: 50.50
+                  mrp: 65.00
+                  receivedDate: "2024-01-15T00:00:00Z"
+                  # packetSize and quantity.boxes/extra/tablets/totalStrips might be part of input or calculated
+      responses:
+        '201':
+          description: Stock batch(es) added successfully. Returns the full institution stock item document.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstitutionStockItemResponse' # Wrap in ApiResponse if needed
+        '400':
+          description: Bad Request (e.g., invalid Medicine ID, missing stocks array)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not an Institution)
+        '500':
+          description: Internal Server Error (Failed to create/update stock record)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Institution']
+    get:
+      tags:
+        - Institution Stock
+      summary: Get own stock items (Paginated)
+      description: Retrieves a paginated list of stock items (medicines) for the logged-in institution.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number for pagination
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          schema:
+            type: integer
+            default: 10
+        - name: sortBy
+          in: query
+          description: Field to sort by
+          schema:
+            type: string
+            default: createdAt
+        - name: sortOrder
+          in: query
+          description: Sort order (asc/desc)
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - name: search
+          in: query
+          description: Search term to filter by medicine name (case-insensitive)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated list of institution stock items.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInstitutionStockResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not an Institution)
+      x-authorized-roles: ['Institution']
+
+  /institution-stock/admin:
+    get:
+      tags:
+        - Institution Stock (Admin)
+      summary: Get all institution stocks (Admin view, Paginated)
+      description: Retrieves a paginated list of all institution stock records, with optional filtering.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            default: 10
+        - name: sortBy
+          in: query
+          description: Sort field
+          schema:
+            type: string
+            default: createdAt
+        - name: sortOrder
+          in: query
+          description: Sort order (asc/desc)
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - name: institutionId
+          in: query
+          description: Filter by specific Institution ID
+          schema:
+            $ref: '#/components/schemas/ObjectID'
+        - name: medicineId
+          in: query
+          description: Filter by specific Medicine ID
+          schema:
+            $ref: '#/components/schemas/ObjectID'
+        - name: search
+          in: query
+          description: Search term for medicine name or institution name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated list of all institution stock items.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInstitutionStockResponse' # Needs population details in schema
+        '400':
+          description: Bad Request (e.g., invalid ID format)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not an Admin)
+      x-authorized-roles: ['Admin']
+
+  /institution-stock/{stockId}:
+    parameters:
+      - name: stockId
+        in: path
+        required: true
+        description: ID of the InstitutionStock document (represents stock for one medicine)
+        schema:
+          $ref: '#/components/schemas/ObjectID'
+    get:
+      tags:
+        - Institution Stock
+      summary: Get a specific institution stock item by its document ID
+      description: Retrieves the full stock details (including all batches) for a specific medicine held by an institution.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Institution stock item details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstitutionStockItemResponse' # Wrap in ApiResponse if needed
+        '400':
+          description: Bad Request (Invalid Stock ID format)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not Admin or Owner Institution)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '404':
+          description: Institution stock record not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Institution', 'Admin']
+    put:
+      tags:
+        - Institution Stock
+      summary: Update details of a specific stock batch (NOT IMPLEMENTED)
+      description: >
+        **Note:** This endpoint logic is currently marked as TODO in the controller and returns 501 Not Implemented.
+        Intended to update non-quantity details of a specific batch within the stock item.
+        Requires identifying the specific batch to update (e.g., via batchId parameter or in request body).
+      security:
+        - bearerAuth: []
+      parameters:
+        # Need a way to identify the specific batch, e.g.:
+        # - name: batchId
+        #   in: path
+        #   required: true
+        #   description: ID of the specific batch within the stock item
+        #   schema:
+        #     $ref: '#/components/schemas/ObjectID'
+        - in: path # Existing param
+          name: stockId
+          required: true
+          description: ID of the InstitutionStock document
+          schema:
+            $ref: '#/components/schemas/ObjectID'
+      requestBody:
+        description: Fields to update for the specific batch (exact fields TBD).
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object # Placeholder for updatable batch fields (e.g., mrp, notes)
+              properties:
+                batchIdentifier: # e.g., batchName or internal _id
+                  type: string
+                  example: "BATCH54321"
+                mrp: # Example updatable field
+                  type: number
+                  example: 68.00
+      responses:
+        '200':
+          description: Stock batch updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstitutionStockItemResponse'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not the Owner Institution)
+        '404':
+          description: Institution stock record or specific batch not found
+        '501':
+           description: Not Implemented (Endpoint logic is pending)
+      x-authorized-roles: ['Institution']
+    delete:
+      tags:
+        - Institution Stock
+      summary: Delete an institution stock item document
+      description: Marks an entire institution stock record (for one medicine) as deleted.
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Stock item document marked as deleted successfully.
+        '400':
+          description: Bad Request (Invalid Stock ID format)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not the Owner Institution)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '404':
+          description: Institution stock record not found (or already deleted)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Institution']
+
+  # === Requirements Routes ===
+  /requirements:
+    post:
+      tags:
+        - Requirements
+      summary: Create a new stock requirement (Institution)
+      description: Allows an institution to request specific quantities of medicines from a specified warehouse.
+      security:
+        - bearerAuth: []
+      requestBody:
+        description: Details of the warehouse and the medicines requested.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                warehouseId:
+                  $ref: '#/components/schemas/ObjectID'
+                  description: ID of the target warehouse
+                medicines:
+                  type: array
+                  description: List of medicines and quantities requested
+                  items:
+                    $ref: '#/components/schemas/RequirementMedicineItemInput'
+                  minItems: 1
+              required:
+                - warehouseId
+                - medicines
+            example:
+              warehouseId: "60d0fe4f5311236168a109ce"
+              medicines:
+                - medicineId: "60d0fe4f5311236168a109cc"
+                  requestedQuantity: 50
+                - medicineId: "60d0fe4f5311236168a109cd"
+                  requestedQuantity: 100
+      responses:
+        '201':
+          description: Requirement created successfully. Returns the new requirement object.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequirementResponse' # Wrap in ApiResponse if needed
+        '400':
+          description: Bad Request (e.g., invalid Warehouse ID, invalid medicines array/items)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not an Institution)
+        '404':
+          description: Not Found (e.g., Specified warehouse or medicine ID does not exist)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '500':
+          description: Internal Server Error (Failed to create requirement)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Institution']
+    get:
+      tags:
+        - Requirements
+      summary: Get own requirements (Institution view, Paginated)
+      description: Retrieves a paginated list of requirements created by the logged-in institution.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+      responses:
+        '200':
+          description: Paginated list of own requirements.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRequirementResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not an Institution)
+      x-authorized-roles: ['Institution']
+
+  /requirements/warehouse:
+    get:
+      tags:
+        - Requirements (Warehouse)
+      summary: Get requirements directed to the warehouse (Warehouse view, Paginated)
+      description: Retrieves a paginated list of requirements assigned to the logged-in warehouse.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+      responses:
+        '200':
+          description: Paginated list of requirements for the warehouse.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRequirementResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not a Warehouse)
+      x-authorized-roles: ['Warehouse']
+
+  /requirements/admin:
+    get:
+      tags:
+        - Requirements (Admin)
+      summary: Get all requirements (Admin view, Paginated)
+      description: Retrieves a paginated list of all requirements, with optional filtering.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+        - name: warehouseId
+          in: query
+          description: Filter by specific Warehouse ID
+          schema:
+            $ref: '#/components/schemas/ObjectID'
+        - name: institutionId
+          in: query
+          description: Filter by specific Institution ID
+          schema:
+            $ref: '#/components/schemas/ObjectID'
+        - name: status
+          in: query
+          description: Filter by overall requirement status
+          schema:
+            type: string
+            enum: [Pending, Partially Approved, Fully Approved, Rejected, Shipped, Partially Shipped, Delivered, Received]
+      responses:
+        '200':
+          description: Paginated list of all requirements.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRequirementResponse'
+        '400':
+          description: Bad Request (e.g., invalid filter ID format)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not an Admin)
+      x-authorized-roles: ['Admin']
+
+  /requirements/{requirementId}:
+    parameters:
+      - name: requirementId
+        in: path
+        required: true
+        description: ID of the requirement
+        schema:
+          $ref: '#/components/schemas/ObjectID'
+    get:
+      tags:
+        - Requirements
+      summary: Get a specific requirement by ID
+      description: >
+        Retrieves details of a specific requirement.
+        Accessible by the owning Institution, the target Warehouse, or an Admin.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Requirement details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequirementResponse' # Wrap in ApiResponse if needed
+        '400':
+          description: Bad Request (Invalid Requirement ID format)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User role not allowed or does not own/target this requirement)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '404':
+          description: Requirement not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Institution', 'Warehouse', 'Admin']
+
+  /requirements/{requirementId}/approve:
+    parameters:
+      - name: requirementId
+        in: path
+        required: true
+        description: ID of the requirement to approve items for
+        schema:
+          $ref: '#/components/schemas/ObjectID'
+    patch:
+      tags:
+        - Requirements (Warehouse)
+      summary: Approve/Reject items within a requirement (Warehouse)
+      description: Allows a warehouse user to set the approved quantity and status for individual medicine items within a specific requirement.
+      security:
+        - bearerAuth: []
+      requestBody:
+        description: >
+          An array of items to update. Each item needs the `medicineId` and the `approvedQuantity`.
+          Setting `approvedQuantity` to 0 implies rejection (status might be set automatically or via another field if needed).
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                itemsToApprove:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/RequirementItemApprovalInput'
+                  minItems: 1
+              required:
+                - itemsToApprove
+            example:
+              itemsToApprove:
+                - medicineId: "60d0fe4f5311236168a109cc"
+                  approvedQuantity: 40 # Approve 40 out of 50 requested
+                - medicineId: "60d0fe4f5311236168a109cd"
+                  approvedQuantity: 0 # Reject this item
+      responses:
+        '200':
+          description: Requirement items updated successfully. Returns the updated requirement object.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequirementResponse' # Wrap in ApiResponse if needed
+        '400':
+          description: Bad Request (e.g., invalid Requirement ID, invalid items format, quantity mismatch)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not the target Warehouse for this requirement)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '404':
+          description: Requirement not found or specific medicine item not found within the requirement
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '409':
+          description: Conflict (e.g., Requirement status does not allow approval, insufficient warehouse stock)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '500':
+           description: Internal Server Error (Failed to update requirement or stock)
+           content:
+             application/json:
+               schema:
+                 $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Warehouse']
+
+  # === Logistics Routes ===
+  /logistics:
+    post:
+      tags:
+        - Logistics (Warehouse)
+      summary: Create a new shipment for an approved requirement (Warehouse)
+      description: >
+        Creates a shipment record based on an approved requirement.
+        This typically involves:
+        1. Verifying the requirement status and ownership.
+        2. Allocating specific batches from warehouse stock to fulfill approved quantities.
+        3. Decrementing warehouse stock (actual and reserved quantities).
+        4. Creating the Logistic document with shipment details.
+        5. Updating the requirement status and linking it to the new Logistic document.
+        This is a transactional operation.
+      security:
+        - bearerAuth: []
+      requestBody:
+        description: Requirement ID and vehicle details for the shipment.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                requirementId:
+                  $ref: '#/components/schemas/ObjectID'
+                  description: ID of the approved/partially approved requirement
+                vehicles:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/LogisticVehicleInput'
+                  minItems: 1
+                  description: Details of the vehicle(s) used for shipment
+                shipmentId:
+                   type: string
+                   description: Optional - Provide a specific shipment ID, otherwise one will be generated.
+                   example: "SHP2024-ABC"
+              required:
+                - requirementId
+                - vehicles
+            example:
+              requirementId: "60d0fe4f5311236168a109cf" # Example Requirement ID
+              vehicles:
+                -
+                  vehicleNumber: "UP32 AB 1234"
+                  driverName: "Rajesh Kumar"
+                  driverContact: "9876543210"
+                  timestamps:
+                    loadedAt: "2024-01-20T10:00:00Z"
+                    departedAt: "2024-01-20T11:00:00Z"
+      responses:
+        '201':
+          description: Shipment created successfully. Returns the new logistic object.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogisticResponse' # Wrap in ApiResponse if needed
+        '400':
+          description: Bad Request (e.g., invalid Requirement ID, requirement status not suitable, vehicle details missing, stock mismatch)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not the target Warehouse for the requirement)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '404':
+          description: Not Found (Requirement or required warehouse stock not found)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '409':
+          description: Conflict (Shipment already exists for this requirement, if applicable)
+        '500':
+          description: Internal Server Error (Transaction failed, stock inconsistency)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Warehouse']
+    get:
+      tags:
+        - Logistics (Warehouse)
+      summary: Get shipments created by the warehouse (Warehouse view, Paginated)
+      description: Retrieves a paginated list of shipments originating from the logged-in warehouse.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+      responses:
+        '200':
+          description: Paginated list of created shipments.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedLogisticResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not a Warehouse)
+      x-authorized-roles: ['Warehouse']
+
+  /logistics/institution:
+    get:
+      tags:
+        - Logistics (Institution)
+      summary: Get incoming shipments for the institution (Institution view, Paginated)
+      description: Retrieves a paginated list of shipments destined for the logged-in institution.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+      responses:
+        '200':
+          description: Paginated list of incoming shipments.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedLogisticResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not an Institution)
+      x-authorized-roles: ['Institution']
+
+  /logistics/admin:
+    get:
+      tags:
+        - Logistics (Admin)
+      summary: Get all shipments (Admin view, Paginated)
+      description: Retrieves a paginated list of all shipments, optionally filtered.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+        - name: warehouseId
+          in: query
+          description: Filter by originating Warehouse ID
+          schema:
+            $ref: '#/components/schemas/ObjectID'
+        - name: institutionId
+          in: query
+          description: Filter by destination Institution ID
+          schema:
+            $ref: '#/components/schemas/ObjectID'
+        - name: status
+          in: query
+          description: Filter by shipment status (e.g., In Transit, Delivered)
+          schema:
+            type: string
+            enum: [Pending, In Transit, Delivered]
+        - name: receivedStatus
+          in: query
+          description: Filter by institution received status (Pending, Received)
+          schema:
+            type: string
+            enum: [Pending, Received]
+      responses:
+        '200':
+          description: Paginated list of all shipments.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedLogisticResponse'
+        '400':
+          description: Bad Request (e.g., invalid filter ID format)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not an Admin)
+      x-authorized-roles: ['Admin']
+
+  /logistics/{logisticId}:
+    parameters:
+      - name: logisticId
+        in: path
+        required: true
+        description: ID of the logistic/shipment document
+        schema:
+          $ref: '#/components/schemas/ObjectID'
+    get:
+      tags:
+        - Logistics
+      summary: Get a specific shipment by its document ID
+      description: >
+        Retrieves the full details of a specific shipment.
+        Accessible by the originating Warehouse, the destination Institution, or an Admin.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Shipment details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogisticResponse' # Wrap in ApiResponse if needed
+        '400':
+          description: Bad Request (Invalid Logistic ID format)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not associated with this shipment)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '404':
+          description: Shipment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Warehouse', 'Institution', 'Admin']
+
+  /logistics/{logisticId}/status:
+    parameters:
+      - name: logisticId
+        in: path
+        required: true
+        description: ID of the shipment to update status for
+        schema:
+          $ref: '#/components/schemas/ObjectID'
+    patch:
+      tags:
+        - Logistics (Warehouse)
+      summary: Update the status of a shipment (Warehouse)
+      description: Allows the originating warehouse to update the shipment status (e.g., In Transit -> Delivered).
+      security:
+        - bearerAuth: []
+      requestBody:
+        description: The new status for the shipment.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [In Transit, Delivered] # Example allowed statuses for update
+                  description: The new shipment status
+              required:
+                - status
+            example:
+              status: "Delivered"
+      responses:
+        '200':
+          description: Shipment status updated successfully. Returns the updated logistic object.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogisticResponse' # Wrap in ApiResponse if needed
+        '400':
+          description: Bad Request (e.g., invalid status value, invalid transition)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not the originating Warehouse)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '404':
+          description: Shipment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '500':
+           description: Internal Server Error
+           content:
+             application/json:
+               schema:
+                 $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Warehouse']
+
+  /logistics/{logisticId}/receive:
+    parameters:
+      - name: logisticId
+        in: path
+        required: true
+        description: ID of the shipment to mark as received
+        schema:
+          $ref: '#/components/schemas/ObjectID'
+    patch:
+      tags:
+        - Logistics (Institution)
+      summary: Mark a shipment as received (Institution)
+      description: >
+        Allows the destination institution to mark the shipment as received.
+        This updates the `receivedStatus` on the Logistic document and potentially updates the `overallStatus` on the associated Requirement.
+        May also trigger the creation/update of InstitutionStock records.
+      security:
+        - bearerAuth: []
+      # Request body might be needed if partial receipt or discrepancy reporting is allowed
+      # requestBody:
+      #   description: Optional details about the received shipment (e.g., discrepancies).
+      #   required: false
+      #   content:
+      #     application/json:
+      #       schema:
+      #         type: object
+      #         properties:
+      #           notes: { type: string }
+      #           receivedAt: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Shipment marked as received successfully. Returns the updated logistic object.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogisticResponse' # Wrap in ApiResponse if needed
+        '400':
+          description: Bad Request (e.g., shipment already marked as received)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not the destination Institution)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '404':
+          description: Shipment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '500':
+           description: Internal Server Error (Failed to update records)
+           content:
+             application/json:
+               schema:
+                 $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Institution']
+
+  # === Warehouse Stock Routes ===
+  /warehouse-stock:
+    post:
+      tags:
+        - Warehouse Stock
+      summary: Add stock batch(es) to the warehouse for a specific medicine
+      description: Adds one or more stock batches for a given medicine ID to the warehouse's inventory.
+      security:
+        - bearerAuth: []
+      requestBody:
+        description: Medicine ID and array of new stock batches.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                medicineId:
+                  $ref: '#/components/schemas/ObjectID'
+                stocks:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/WarehouseStockBatchInput'
+                  minItems: 1
+              required:
+                - medicineId
+                - stocks
+            example:
+              medicineId: "60d0fe4f5311236168a109cc"
+              stocks:
+                -
+                  batchName: "BATCHABC1"
+                  quantity: 500 # Total strips/units
+                  expiryDate: "2026-01-31T00:00:00Z"
+                  purchasePrice: 45.00
+                  sellingPrice: 55.00
+                  mrp: 65.00
+                  receivedDate: "2024-01-10T00:00:00Z"
+      responses:
+        '201':
+          description: Stock added/updated successfully. Returns the full warehouse stock item document.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarehouseStockItemResponse' # Wrap in ApiResponse if needed
+        '400':
+          description: Bad Request (e.g., invalid Medicine ID, missing fields in batch)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not a Warehouse)
+        '500':
+          description: Internal Server Error (Failed to create/update stock record)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Warehouse']
+    get:
+      tags:
+        - Warehouse Stock
+      summary: Get own warehouse stock items (Warehouse view, Paginated)
+      description: Retrieves a paginated list of stock items (medicines) for the logged-in warehouse.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+        - name: search
+          in: query
+          description: Search term to filter by medicine name (case-insensitive)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated list of warehouse stock items.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWarehouseStockResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not a Warehouse)
+      x-authorized-roles: ['Warehouse']
+
+  /warehouse-stock/available:
+    get:
+      tags:
+        - Warehouse Stock (Institution View)
+      summary: Get aggregated available stock for institutions (Paginated)
+      description: >
+        Retrieves a paginated list of medicines available across all warehouses.
+        It aggregates the available quantity (total quantity - reserved quantity) for each non-expired medicine.
+        Designed for institutions to see what stock can be requested.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: search
+          in: query
+          description: Search term for medicine name or manufacturer
+          schema:
+            type: string
+            default: ""
+        - name: category
+          in: query
+          description: Filter by medicine category
+          schema:
+            type: string
+            default: ""
+      responses:
+        '200':
+          description: Paginated list of available stock items with aggregated quantities.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAvailableStockResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not an Institution)
+        '500':
+           description: Internal Server Error (Aggregation failed)
+           content:
+             application/json:
+               schema:
+                 $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Institution']
+
+  /warehouse-stock/admin:
+    get:
+      tags:
+        - Warehouse Stock (Admin)
+      summary: Get all warehouse stock items (Admin view, Paginated)
+      description: Retrieves a paginated list of all warehouse stock records, optionally filtered.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+        - name: warehouseId
+          in: query
+          description: Filter by specific Warehouse ID
+          schema:
+            $ref: '#/components/schemas/ObjectID'
+        - name: medicineId
+          in: query
+          description: Filter by specific Medicine ID
+          schema:
+            $ref: '#/components/schemas/ObjectID'
+        - name: search
+          in: query
+          description: Search term for medicine name or warehouse name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated list of all warehouse stock items.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWarehouseStockResponse' # Needs population details
+        '400':
+          description: Bad Request (e.g., invalid filter ID format)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not an Admin)
+      x-authorized-roles: ['Admin']
+
+  /warehouse-stock/{stockId}:
+    parameters:
+      - name: stockId
+        in: path
+        required: true
+        description: ID of the WarehouseStock document (represents stock for one medicine in one warehouse)
+        schema:
+          $ref: '#/components/schemas/ObjectID'
+    get:
+      tags:
+        - Warehouse Stock
+      summary: Get a specific warehouse stock item by its document ID
+      description: Retrieves the full stock details (including all batches) for a specific medicine held by a warehouse.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Warehouse stock item details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarehouseStockItemResponse' # Wrap in ApiResponse if needed
+        '400':
+          description: Bad Request (Invalid Stock ID format)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not Admin or the Owner Warehouse)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '404':
+          description: Warehouse stock record not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Warehouse', 'Admin']
+    put:
+      tags:
+        - Warehouse Stock
+      summary: Update details of a specific stock batch (NOT IMPLEMENTED)
+      description: >
+        **Note:** Endpoint logic for updating specific batch details is likely needed but not shown in controller code provided.
+        Intended to update non-quantity details of a specific batch within the stock item.
+        Requires identifying the specific batch to update.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: stockId
+          required: true
+          description: ID of the WarehouseStock document
+          schema:
+            $ref: '#/components/schemas/ObjectID'
+        # Need a way to identify the batch (e.g., path param or in body)
+      requestBody:
+        description: Fields to update for the specific batch.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object # Placeholder for updatable batch fields
+              properties:
+                batchIdentifier: # e.g., batchName or internal _id
+                  type: string
+                  example: "BATCHABC1"
+                sellingPrice: # Example updatable field
+                  type: number
+                  example: 58.00
+      responses:
+        '200':
+          description: Stock batch updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarehouseStockItemResponse'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not the Owner Warehouse)
+        '404':
+          description: Warehouse stock record or specific batch not found
+        '501':
+           description: Not Implemented (If endpoint doesn't exist/is pending)
+      x-authorized-roles: ['Warehouse']
+    delete:
+      tags:
+        - Warehouse Stock
+      summary: Delete a warehouse stock item document
+      description: Marks an entire warehouse stock record (for one medicine in that warehouse) as deleted.
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Warehouse stock item document marked as deleted successfully.
+        '400':
+          description: Bad Request (Invalid Stock ID format)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not the Owner Warehouse)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '404':
+          description: Warehouse stock record not found (or already deleted)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Warehouse']
+
+  # === Salt Routes ===
+  /salts:
+    get:
+      tags:
+        - Salts
+      summary: Get a list of all salts (Paginated)
+      description: Retrieves a paginated list of salts, searchable by name.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+        - name: search
+          in: query
+          description: Search term for salt name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated list of salts.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSaltResponse' # Wrap in ApiResponse if needed
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not Admin or Warehouse)
+      x-authorized-roles: ['Admin', 'Warehouse']
+    post:
+      tags:
+        - Salts
+      summary: Create a new salt
+      description: Adds a new salt definition to the system.
+      security:
+        - bearerAuth: []
+      requestBody:
+        description: Details of the new salt.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the salt (must be unique)
+                  example: "Paracetamol"
+                useCase:
+                  type: string
+                  description: Description of the salt's use case
+                  example: "Pain relief and fever reduction"
+                # createdByRole and createdBy might be inferred from token, not body
+                # If they need to be in body, add them here:
+                # createdByRole:
+                #   type: string
+                #   enum: [Admin, Warehouse]
+                # createdBy:
+                #   $ref: '#/components/schemas/ObjectID'
+              required:
+                - name
+                # - createdByRole # Only if required in body
+                # - createdBy # Only if required in body
+            example:
+               name: "Amoxicillin"
+               useCase: "Antibiotic for bacterial infections"
+      responses:
+        '201':
+          description: Salt created successfully. Returns the new salt object.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Salt' # Wrap in ApiResponse if needed
+        '400':
+          description: Bad Request (e.g., missing name, name not unique)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not Admin or Warehouse)
+        '409': # Assuming duplicate name check returns 409
+          description: Conflict (Salt name already exists)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Admin', 'Warehouse']
+
+  /salts/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of the salt
+        schema:
+          $ref: '#/components/schemas/ObjectID'
+    get:
+      tags:
+        - Salts
+      summary: Get a specific salt by ID
+      description: Retrieves the details of a single salt.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Salt details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Salt' # Wrap in ApiResponse if needed
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not Admin or Warehouse)
+        '404':
+          description: Salt not found (or deleted)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Admin', 'Warehouse']
+    put:
+      tags:
+        - Salts
+      summary: Update a specific salt
+      description: Updates the name and/or use case of an existing salt.
+      security:
+        - bearerAuth: []
+      requestBody:
+        description: Fields to update for the salt.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: New name for the salt (must be unique)
+                useCase:
+                  type: string
+                  description: Updated use case description
+              # Ensure at least one field is provided for update
+              minProperties: 1
+            example:
+              name: "Amoxicillin Trihydrate"
+              useCase: "Broad-spectrum antibiotic"
+      responses:
+        '200':
+          description: Salt updated successfully. Returns the previous state of the salt object (common for findByIdAndUpdate).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Salt' # Wrap in ApiResponse if needed
+        '400':
+          description: Bad Request (e.g., validation errors, name conflict)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not Admin or Warehouse)
+        '404':
+          description: Salt not found (or deleted)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '409': # Assuming duplicate name check on update
+          description: Conflict (Updated name already exists)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Admin', 'Warehouse']
+    delete:
+      tags:
+        - Salts
+      summary: Delete a specific salt
+      description: Marks a salt as deleted (soft delete).
+      security:
+        - bearerAuth: []
+      responses:
+        '200': # Controller returns 200 with previous object
+          description: Salt marked as deleted successfully. Returns the salt object state before deletion.
+          content:
+            application/json:
+              schema:
+                 $ref: '#/components/schemas/Salt' # Wrap in ApiResponse if needed
+        # '204':
+        #   description: Salt deleted successfully (No Content alternative)
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not Admin or Warehouse)
+        '404':
+          description: Salt not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Admin', 'Warehouse']
+
+  # === Manufacturer Routes ===
+  /manufacturers:
+    get:
+      tags:
+        - Manufacturers
+      summary: Get a list of all manufacturers (Paginated)
+      description: Retrieves a paginated list of manufacturers, searchable by name.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+        - name: search
+          in: query
+          description: Search term for manufacturer name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated list of manufacturers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedManufacturerResponse' # Wrap in ApiResponse if needed
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not Admin or Warehouse)
+      x-authorized-roles: ['Admin', 'Warehouse']
+    post:
+      tags:
+        - Manufacturers
+      summary: Create a new manufacturer
+      description: Adds a new manufacturer record to the system.
+      security:
+        - bearerAuth: []
+      requestBody:
+        description: Details of the new manufacturer.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManufacturerInput' # Use specific input schema
+            example:
+              name: "PharmaCorp Inc."
+              email: "contact@pharmacorp.com"
+              phone: "123-456-7890"
+              address: "123 Pharma Lane, Suite 100"
+      responses:
+        '201':
+          description: Manufacturer created successfully. Returns the new manufacturer object.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Manufacturer' # Wrap in ApiResponse if needed
+        '400':
+          description: Bad Request (e.g., missing name)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not Admin or Warehouse)
+        '409': # Assuming duplicate name check
+          description: Conflict (Manufacturer name already exists)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Admin', 'Warehouse']
+
+  /manufacturers/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of the manufacturer
+        schema:
+          $ref: '#/components/schemas/ObjectID'
+    get:
+      tags:
+        - Manufacturers
+      summary: Get a specific manufacturer by ID
+      description: Retrieves the details of a single manufacturer.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Manufacturer details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Manufacturer' # Wrap in ApiResponse if needed
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not Admin or Warehouse)
+        '404':
+          description: Manufacturer not found (or deleted)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Admin', 'Warehouse']
+    put:
+      tags:
+        - Manufacturers
+      summary: Update a specific manufacturer
+      description: Updates the details (name, email, phone, address) of an existing manufacturer.
+      security:
+        - bearerAuth: []
+      requestBody:
+        description: Fields to update for the manufacturer.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManufacturerInput' # Can reuse input schema for update fields
+            example:
+              name: "PharmaCorp Global"
+              phone: "987-654-3210"
+      responses:
+        '200':
+          description: Manufacturer updated successfully. Returns the state before update.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Manufacturer' # Wrap in ApiResponse if needed
+        '400':
+          description: Bad Request (e.g., validation errors)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not Admin or Warehouse)
+        '404':
+          description: Manufacturer not found (or deleted)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '409': # Assuming duplicate name check on update
+          description: Conflict (Updated name already exists)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Admin', 'Warehouse']
+    delete:
+      tags:
+        - Manufacturers
+      summary: Delete a specific manufacturer
+      description: Marks a manufacturer as deleted (soft delete).
+      security:
+        - bearerAuth: []
+      responses:
+        '200': # Controller returns 200 with previous object
+          description: Manufacturer marked as deleted successfully. Returns state before deletion.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Manufacturer' # Wrap in ApiResponse if needed
+        # '204':
+        #   description: Manufacturer deleted successfully (No Content)
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not Admin or Warehouse)
+        '404':
+          description: Manufacturer not found (or already deleted)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Admin', 'Warehouse']
+
+  # === Institution Routes ===
+  /institutions:
+    get:
+      tags:
+        - Institutions (Admin)
+      summary: Get a list of all institutions (Admin view, Paginated)
+      description: Retrieves a paginated list of all registered institutions, searchable by name, email, or registration number.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+        - name: search
+          in: query
+          description: Search term for name, email, or registration number
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated list of institutions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInstitutionResponse' # Wrap in ApiResponse if needed
+        '400':
+          description: Bad Request (e.g., invalid query parameters)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not an Admin)
+      x-authorized-roles: ['Admin']
+
+  /institutions/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of the institution
+        schema:
+          $ref: '#/components/schemas/ObjectID'
+    get:
+      tags:
+        - Institutions
+      summary: Get details of a specific institution by ID
+      description: >
+        Retrieves the full details for a specific institution.
+        Accessible by Admins or the Institution itself.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Institution details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstitutionUser' # Wrap in ApiResponse if needed
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not Admin or the specified Institution)
+        '404':
+          description: Institution not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Admin', 'Institution']
+
+  # === Auth Routes ===
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user (Admin, Institution, or Warehouse)
+      description: >
+        Registers a new user based on the provided `userType`.
+        Required fields vary depending on the user type.
+        - **Admin:** email, password
+        - **Institution:** email, password, name, registrationNumber, location, institutionCode, incharge (array)
+        - **Warehouse:** email, password, name, registrationNumber, location, warehouseCode, managers (array)
+      responses:
+        '201':
+          description: User registered successfully. Returns the created user object (without password).
+          content:
+            application/json:
+              schema:
+                # Using oneOf to represent the different possible user types in the response data
+                # Ideally, wrap this in the standard ApiResponse structure if used consistently
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 201
+                  data:
+                    oneOf:
+                      - $ref: '#/components/schemas/AdminUser'
+                      - $ref: '#/components/schemas/InstitutionUser'
+                      - $ref: '#/components/schemas/WarehouseUser'
+                  message:
+                    type: string
+                    example: "Institution registered successfully"
+        '400':
+          description: Bad Request (e.g., missing required fields, invalid user type)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '409':
+          description: Conflict (User with this email already exists for the specified type)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      requestBody:
+        description: User registration details. Fields depend on `userType`.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegistration' # Use the discriminator schema
+            examples:
+              registerAdmin:
+                summary: Register Admin Example
+                value:
+                  userType: "admin"
+                  email: "admin@example.com"
+                  password: "password123"
+              registerInstitution:
+                summary: Register Institution Example
+                value:
+                  userType: "institution"
+                  email: "hospital@example.com"
+                  password: "password123"
+                  institutionCode: "INST001"
+                  name: "Example Hospital"
+                  registrationNumber: "REG-HOS-123"
+                  location:
+                    address: "123 Health St"
+                    city: "MedCity"
+                    district: "Central District"
+                    state: "StateOfHealth"
+                    pincode: "12345"
+                  incharge:
+                    - name: "Dr. Smith"
+                      contact: "9876543210"
+                      email: "dr.smith@hospital.com"
+              registerWarehouse:
+                summary: Register Warehouse Example
+                value:
+                  userType: "warehouse"
+                  email: "warehouse@example.com"
+                  password: "password123"
+                  warehouseCode: "WH001"
+                  name: "Central Warehouse"
+                  registrationNumber: "REG-WH-456"
+                  location:
+                    address: "456 Logistics Ave"
+                    city: "SupplyCity"
+                    district: "Supply District"
+                    state: "StateOfSupply"
+                    pincode: "54321"
+                  managers:
+                    - name: "Mr. Jones"
+                      contact: "1234567890"
+                      email: "mr.jones@warehouse.com"
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Log in a user (Admin, Institution, or Warehouse)
+      description: Logs in a user based on `userType`, email, and password, returning user details and an access token.
+      responses:
+        '200':
+          description: Login successful. Returns user object (without password) and JWT access token.
+          content:
+            application/json:
+              schema:
+                # Specific schema for the successful login response structure from controller
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/AuthResponse'
+                  message:
+                    type: string
+                    example: "Admin logged in successfully"
+        '400':
+          description: Bad Request (e.g., missing userType, email, or password)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized (Invalid credentials)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '404':
+          description: Not Found (User with the specified email and type does not exist)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      requestBody:
+        description: User login credentials including user type.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLogin'
+            examples:
+              loginAdmin:
+                summary: Login Admin Example
+                value:
+                  userType: "admin"
+                  email: "admin@example.com"
+                  password: "password123"
+              loginInstitution:
+                summary: Login Institution Example
+                value:
+                  userType: "institution"
+                  email: "hospital@example.com"
+                  password: "password123"
+
+  /auth/me:
+    get:
+      tags:
+        - Authentication
+      summary: Get current authenticated user profile
+      description: Retrieves the profile information of the user associated with the provided JWT token.
+      security:
+        - bearerAuth: [] # Requires authentication
+      responses:
+        '200':
+          description: Current user details fetched successfully.
+          content:
+            application/json:
+              schema:
+                 # Using oneOf to represent the different possible user types in the response data
+                 # This comes directly from req.user, assuming it's the full user object minus password
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  data:
+                    oneOf:
+                      - $ref: '#/components/schemas/AdminUser'
+                      - $ref: '#/components/schemas/InstitutionUser'
+                      - $ref: '#/components/schemas/WarehouseUser'
+                  message:
+                    type: string
+                    example: "Current user fetched successfully"
+        '401':
+          description: Unauthorized (No valid token provided or token expired)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError' # Assuming middleware throws ApiError
+
+  # === Health Check Route ===
+  /healthcheck:
+    get:
+      tags:
+        - Health Check
+      summary: Perform API health check
+      description: Checks if the API service is operational. Does not require authentication.
+      responses:
+        '200':
+          description: API is healthy and operational.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+              example:
+                statusCode: 200
+                data:
+                  status: "OK"
+                  message: "Service is up and running"
+                  timestamp: "2023-10-27T12:00:00Z"
+                message: "Health check successful"
+        '503':
+          description: Service Unavailable (API is unhealthy or failing).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError' # Standard error response
+              example:
+                 statusCode: 503
+                 message: "Service Unavailable"
+                 errors: ["Database connection failed"]
+
+  # === Warehouse Routes ===
+  /warehouses:
+    get:
+      tags:
+        - Warehouses (Admin)
+      summary: Get a list of all warehouses (Admin view, Paginated)
+      description: Retrieves a paginated list of all registered warehouses, searchable by name, email, registration number, or warehouse code.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+        - name: search
+          in: query
+          description: Search term for name, email, registration number, or warehouse code
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated list of warehouses.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWarehouseResponse' # Wrap in ApiResponse if needed
+        '400':
+          description: Bad Request (e.g., invalid query parameters)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not an Admin)
+      x-authorized-roles: ['Admin']
+
+  /warehouses/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of the warehouse
+        schema:
+          $ref: '#/components/schemas/ObjectID'
+    get:
+      tags:
+        - Warehouses
+      summary: Get details of a specific warehouse by ID
+      description: >
+        Retrieves the full details for a specific warehouse.
+        Accessible by Admins or the Warehouse itself.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Warehouse details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarehouseUser' # Wrap in ApiResponse if needed
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not Admin or the specified Warehouse)
+        '404':
+          description: Warehouse not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Admin', 'Warehouse']
+
+  # === Medicine Routes (Assumed CRUD based on file name) ===
+  /medicines:
+    get:
+      tags:
+        - Medicines
+      summary: Get a list of all medicines (Paginated) # Updated Summary
+      description: Retrieves a paginated list of medicines, optionally searchable. # Added Description
+      security:
+        - bearerAuth: []
+      parameters: # Added Pagination/Search Params
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+        - name: search
+          in: query
+          description: Search term for medicine name or manufacturer
+            schema:
+                  type: string
+      responses:
+        '200':
+          description: Paginated list of medicines. # Updated Description
+        content:
+          application/json:
+            schema:
+                $ref: '#/components/schemas/PaginatedMedicineResponse' # Use Paginated Response
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not Admin or Warehouse)
+      x-authorized-roles: ['Admin', 'Warehouse']
+    post:
+      tags:
+        - Medicines
+      summary: Create a new medicine
+      description: Adds a new medicine definition to the system. # Added Description
+      security:
+        - bearerAuth: []
+      requestBody:
+        description: Details of the new medicine.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicineInput' # Use Input Schema
+            example:
+              name: "Paracetamol 500mg Tablets"
+              category: "Pain Relief"
+              unit: "strip"
+              saltId: "60d0fe4f5311236168a109cb" # Example Salt ID
+              manufacturerId: "60d0fe4f5311236168a109ca" # Example Manufacturer ID
+      responses:
+        '201':
+          description: Medicine created successfully. Returns the new medicine object. # Updated Description
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicineResponse' # Use Response Schema
+        '400':
+          description: Bad Request (e.g., missing required fields, invalid IDs)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not Admin or Warehouse)
+        '404': # Added 404 for invalid Salt/Manufacturer ID
+          description: Not Found (Specified Salt or Manufacturer ID does not exist)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '409': # Added 409 for potential duplicates
+          description: Conflict (Medicine with this name/combination might already exist)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Admin', 'Warehouse']
+
+  /medicines/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of the medicine
+        schema:
+          $ref: '#/components/schemas/ObjectID' # Use ObjectID ref
+    get:
+      tags:
+        - Medicines
+      summary: Get a specific medicine by ID
+      description: Retrieves the details of a single medicine. # Added Description
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Medicine details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicineResponse' # Use Response Schema
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not Admin or Warehouse)
+        '404':
+          description: Medicine not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Admin', 'Warehouse']
+    put:
+      tags:
+        - Medicines
+      summary: Update a specific medicine
+      description: Updates the details of an existing medicine. # Added Description
+      security:
+        - bearerAuth: []
+      requestBody:
+        description: Fields to update for the medicine.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicineInput' # Reuse Input Schema (or create Update schema)
+            example:
+              name: "Paracetamol 500mg (New Formula)"
+              category: "Analgesic"
+      responses:
+        '200':
+          description: Medicine updated successfully. Returns the updated medicine object. # Updated Description
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicineResponse' # Use Response Schema
+        '400':
+          description: Bad Request (e.g., validation errors, invalid IDs)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not Admin or Warehouse)
+        '404':
+          description: Medicine, Salt, or Manufacturer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+        '409': # Added 409
+          description: Conflict (e.g., updated name conflicts with another medicine)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Admin', 'Warehouse']
+    delete:
+      tags:
+        - Medicines
+      summary: Delete a specific medicine
+      description: Marks a medicine as deleted (soft delete). # Added Description
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Medicine marked as deleted successfully. # Changed to 204 No Content
+        # Optional: Return 200 with the deleted object if preferred
+        # '200':
+        #   description: Medicine marked as deleted successfully. Returns the state before deletion.
+        #   content:
+        #     application/json:
+        #       schema:
+        #         $ref: '#/components/schemas/MedicineResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not Admin or Warehouse)
+        '404':
+          description: Medicine not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseError'
+      x-authorized-roles: ['Admin', 'Warehouse']
+
+components:
+  schemas:
+    # === Base Schemas ===
+    ObjectID:
+      type: string
+      description: MongoDB Object ID
+      example: "60d0fe4f5311236168a109ca"
+    Timestamp:
+      type: string
+      format: date-time
+      description: ISO 8601 format date-time string
+      example: "2023-10-27T10:30:00Z"
+    Location:
+      type: object
+      properties:
+        address:
+          type: string
+          example: "123 Health St"
+        city:
+          type: string
+          example: "MedCity"
+        district:
+          type: string
+          example: "Central District"
+        state:
+          type: string
+          example: "StateOfHealth"
+        pincode:
+          type: string
+          example: "12345"
+        gpsCoordinates:
+          type: object
+          properties:
+            lat:
+              type: number
+              format: float
+              example: 26.8500
+            lng:
+              type: number
+              format: float
+              example: 80.9500
+      required:
+        - address
+        - city
+        - district
+        - state
+        - pincode
+    ContactPerson:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Dr. Smith"
+        contact:
+          type: string
+          example: "9876543210"
+        email:
+          type: string
+          format: email
+          example: "dr.smith@hospital.com"
+      required:
+        - name
+        - contact
+
+    # === User Schemas ===
+    AdminUserBase:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address (unique)
+          example: "admin@example.com"
+      required:
+        - email
+    AdminUserRegistration:
+      allOf:
+        - $ref: '#/components/schemas/AdminUserBase'
+        - type: object
+          properties:
+            password:
+              type: string
+              format: password
+              description: User's password (will be hashed)
+              example: "securePassword123"
+          required:
+            - password
+    AdminUser: # Response schema (no password)
+      allOf:
+        - $ref: '#/components/schemas/AdminUserBase'
+        - type: object
+          properties:
+            _id:
+              $ref: '#/components/schemas/ObjectID'
+            createdAt:
+              $ref: '#/components/schemas/Timestamp'
+            updatedAt:
+              $ref: '#/components/schemas/Timestamp'
+
+    InstitutionUserBase:
+      type: object
+      properties:
+        institutionCode:
+          type: string
+          description: Unique code for the institution
+          example: "INST001"
+        name:
+          type: string
+          description: Name of the institution
+          example: "Example Hospital"
+        email:
+          type: string
+          format: email
+          description: Institution's contact email (unique)
+          example: "contact@examplehospital.org"
+        registrationNumber:
+          type: string
+          description: Official registration number
+          example: "REG-HOS-123"
+        location:
+          $ref: '#/components/schemas/Location'
+        incharge:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContactPerson'
+          description: List of people in charge
+      required:
+        - institutionCode
+        - name
+        - email
+        - registrationNumber
+        - location
+        - incharge
+    InstitutionUserRegistration:
+      allOf:
+        - $ref: '#/components/schemas/InstitutionUserBase'
+        - type: object
+          properties:
+            password:
+              type: string
+              format: password
+              description: User's password (will be hashed)
+              example: "securePassword123"
+          required:
+            - password
+    InstitutionUser: # Response schema (no password)
+      allOf:
+        - $ref: '#/components/schemas/InstitutionUserBase'
+        - type: object
+          properties:
+            _id:
+              $ref: '#/components/schemas/ObjectID'
+            isVerified:
+              type: string
+              enum: [pending, verified]
+              default: pending
+            createdAt:
+              $ref: '#/components/schemas/Timestamp'
+            updatedAt:
+              $ref: '#/components/schemas/Timestamp'
+
+    WarehouseUserBase:
+      type: object
+      properties:
+        warehouseCode:
+          type: string
+          description: Unique code for the warehouse
+          example: "WH001"
+        name:
+          type: string
+          description: Name of the warehouse
+          example: "Central Warehouse"
+        email:
+          type: string
+          format: email
+          description: Warehouse contact email (unique)
+          example: "contact@centralwarehouse.com"
+        registrationNumber:
+          type: string
+          description: Official registration number
+          example: "REG-WH-456"
+        location:
+          $ref: '#/components/schemas/Location'
+        managers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContactPerson'
+          description: List of warehouse managers
+      required:
+        - warehouseCode
+        - name
+        - email
+        - registrationNumber
+        - location
+        - managers
+    WarehouseUserRegistration:
+      allOf:
+        - $ref: '#/components/schemas/WarehouseUserBase'
+        - type: object
+          properties:
+            password:
+              type: string
+              format: password
+              description: User's password (will be hashed)
+              example: "securePassword123"
+          required:
+            - password
+    WarehouseUser: # Response schema (no password)
+      allOf:
+        - $ref: '#/components/schemas/WarehouseUserBase'
+        - type: object
+          properties:
+            _id:
+              $ref: '#/components/schemas/ObjectID'
+            isVerified:
+              type: string
+              enum: [pending, verified]
+              default: pending
+            createdAt:
+              $ref: '#/components/schemas/Timestamp'
+            updatedAt:
+              $ref: '#/components/schemas/Timestamp'
+
+    UserLogin:
+      type: object
+      properties:
+        userType:
+          type: string
+          enum: [admin, institution, warehouse]
+          description: Type of user attempting to log in
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+      required:
+        - userType
+        - email
+        - password
+
+    UserRegistration:
+      type: object
+      # Discriminator helps tools understand which schema variant to use based on userType
+      discriminator:
+        propertyName: userType
+        mapping:
+          admin: '#/components/schemas/AdminUserRegistration'
+          institution: '#/components/schemas/InstitutionUserRegistration'
+          warehouse: '#/components/schemas/WarehouseUserRegistration'
+      properties:
+        userType:
+          type: string
+          enum: [admin, institution, warehouse]
+          description: Type of user being registered. Determines required fields.
+      # Define base required properties (common to all or required by discriminator)
+      required:
+        - userType
+      # Add variants using oneOf - Tools will use the discriminator mapping
+      oneOf:
+        - $ref: '#/components/schemas/AdminUserRegistration'
+        - $ref: '#/components/schemas/InstitutionUserRegistration'
+        - $ref: '#/components/schemas/WarehouseUserRegistration'
+
+    # === Auth Response Schemas ===
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          description: "User object (Admin, Institution, or Warehouse, without password)"
+          oneOf:
+            - $ref: '#/components/schemas/AdminUser'
+            - $ref: '#/components/schemas/InstitutionUser'
+            - $ref: '#/components/schemas/WarehouseUser'
+        accessToken:
+          type: string
+          description: JWT access token for subsequent authenticated requests
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    # === Error Response Schema ===
+    ApiResponseError:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+          description: HTTP status code
+          example: 400
+        message:
+          type: string
+          description: Error message description
+          example: "Invalid user type specified"
+        errors:
+          type: array
+          items:
+            type: string # Assuming errors are simple strings based on ApiError structure
+          description: Optional array of specific validation errors
+          example: ["Password is required"]
+        stack:
+           type: string
+           description: Optional stack trace (usually only in development)
+           example: "Error: Invalid user type specified\\n    at ..."
+      required:
+        - statusCode
+        - message
+
+    # === Institution Stock Schemas ===
+    InstitutionStockBatchBase: # Fields common to input/output
+      type: object
+      properties:
+        warehouseId:
+          $ref: '#/components/schemas/ObjectID'
+          description: ID of the warehouse this batch originated from
+        batchName:
+          type: string
+          example: "BATCH54321"
+        expiryDate:
+          type: string
+          format: date-time
+          description: Expiry date of the batch
+          example: "2025-12-31T00:00:00Z"
+        quantityReceived:
+          type: number
+          description: Total quantity (e.g., strips) received in this batch
+          example: 100
+        purchasePrice:
+          type: number
+          format: float
+          description: Purchase price per unit (e.g., per strip)
+          example: 50.50
+        mrp:
+          type: number
+          format: float
+          description: Maximum Retail Price per unit
+          example: 65.00
+        receivedDate:
+          type: string
+          format: date-time
+          description: Date the batch was received by the institution
+          example: "2024-01-15T00:00:00Z"
+        packetSize: # Optional based on model
+          type: object
+          properties:
+            strips:
+              type: number
+            tabletsPerStrip:
+              type: number
+        quantity: # Optional based on model, might be calculated/derived
+          type: object
+          properties:
+            boxes:
+              type: number
+            extra:
+              type: number
+            tablets:
+              type: number
+            totalStrips:
+              type: number
+      required:
+        - warehouseId
+        - batchName
+        - expiryDate
+        - quantityReceived
+        - purchasePrice
+        - mrp
+        - receivedDate
+    InstitutionStockBatchInput: # Schema for POST request
+      allOf:
+        - $ref: '#/components/schemas/InstitutionStockBatchBase'
+        # Add any fields specific to input if different
+    InstitutionStockBatch: # Schema for response
+      allOf:
+        - $ref: '#/components/schemas/InstitutionStockBatchBase'
+        - type: object
+          properties:
+            _id:
+              $ref: '#/components/schemas/ObjectID' # Assuming subdocuments get IDs
+            createdAt:
+              $ref: '#/components/schemas/Timestamp'
+            # Include populated warehouse if needed
+            warehouseId: # Overwrite base to allow populated object
+               oneOf:
+                 - $ref: '#/components/schemas/ObjectID'
+                 - type: object
+                   properties:
+                     _id: {$ref: '#/components/schemas/ObjectID'}
+                     name: {type: string, example: "Central Warehouse"}
+
+    InstitutionStockItem: # Base schema for the main document
+      type: object
+      properties:
+        institutionId:
+          $ref: '#/components/schemas/ObjectID'
+        medicineId:
+          $ref: '#/components/schemas/ObjectID'
+        stocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/InstitutionStockBatch' # Use response batch schema
+        isDeleted:
+          type: boolean
+          default: false
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+      required:
+        - institutionId
+        - medicineId
+        - stocks
+
+    InstitutionStockItemResponse: # Includes populated fields
+       allOf:
+        - $ref: '#/components/schemas/InstitutionStockItem'
+        - type: object
+          properties:
+            _id:
+              $ref: '#/components/schemas/ObjectID'
+            institutionId: # Populated
+              oneOf:
+                - $ref: '#/components/schemas/ObjectID'
+                - $ref: '#/components/schemas/InstitutionUser' # Reference full user schema
+            medicineId: # Populated - FIXED COMMENT and REFERENCING Medicine schema
+              oneOf:
+                - $ref: '#/components/schemas/ObjectID'
+                - $ref: '#/components/schemas/Medicine' # Reference the new Medicine schema
+
+    # Schema for Paginated results (Generic or Specific)
+    PaginationMetadata:
+      type: object
+      properties:
+        totalDocs:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+        page:
+          type: integer
+        pagingCounter:
+          type: integer
+        hasPrevPage:
+          type: boolean
+        hasNextPage:
+          type: boolean
+        prevPage:
+          type: integer
+          nullable: true
+        nextPage:
+          type: integer
+          nullable: true
+      required:
+        - totalDocs
+        - limit
+        - totalPages
+        - page
+        - hasPrevPage
+        - hasNextPage
+
+    PaginatedInstitutionStockResponse:
+      type: object
+      allOf: # Inherit pagination metadata fields
+        - $ref: '#/components/schemas/PaginationMetadata'
+      properties:
+        docs:
+          type: array
+          items:
+            $ref: '#/components/schemas/InstitutionStockItemResponse' # Array of populated stock items
+      required:
+        - docs
+
+    # === Requirement Schemas ===
+    RequirementMedicineItemBase:
+      type: object
+      properties:
+        medicineId:
+          $ref: '#/components/schemas/ObjectID'
+        requestedQuantity:
+          type: integer
+          minimum: 1
+          description: Quantity requested by the institution
+          example: 50
+      required:
+        - medicineId
+        - requestedQuantity
+    RequirementMedicineItemInput: # Input for POST /requirements
+      allOf:
+        - $ref: '#/components/schemas/RequirementMedicineItemBase'
+    RequirementMedicineItem: # Output schema within Requirement
+      allOf:
+        - $ref: '#/components/schemas/RequirementMedicineItemBase'
+        - type: object
+          properties:
+            approvedQuantity:
+              type: integer
+              minimum: 0
+              default: 0
+              description: Quantity approved by the warehouse
+              example: 40
+            status:
+              type: string
+              enum: [Pending, Approved, Rejected]
+              default: Pending
+              description: Approval status of this specific item
+            medicineId: # Overwrite base to allow populated object
+              oneOf:
+                - $ref: '#/components/schemas/ObjectID'
+                - $ref: '#/components/schemas/Medicine' # Reference the new Medicine schema
+
+    RequirementItemApprovalInput:
+      type: object
+      description: Structure for approving/rejecting a single item in a requirement
+      properties:
+        medicineId:
+          $ref: '#/components/schemas/ObjectID'
+          description: ID of the medicine item within the requirement to update
+        approvedQuantity:
+          type: integer
+          minimum: 0
+          description: The quantity being approved by the warehouse (0 means rejected)
+          example: 40
+      required:
+        - medicineId
+        - approvedQuantity
+
+    RequirementBase:
+      type: object
+      properties:
+        institutionId:
+          $ref: '#/components/schemas/ObjectID'
+        warehouseId:
+          $ref: '#/components/schemas/ObjectID'
+        medicines:
+          type: array
+          items:
+            $ref: '#/components/schemas/RequirementMedicineItem' # Use response schema
+        overallStatus:
+          type: string
+          enum: [Pending, Partially Approved, Fully Approved, Rejected, Shipped, Partially Shipped, Delivered, Received]
+          default: Pending
+          description: The overall status reflecting the state of all items and shipment
+        logisticId:
+          $ref: '#/components/schemas/ObjectID'
+          nullable: true
+          description: Reference to the Logistic document created for this requirement shipment
+        isDeleted:
+          type: boolean
+          default: false
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+      required:
+        - institutionId
+        - warehouseId
+        - medicines
+        - overallStatus
+
+    RequirementResponse: # Response schema with populated fields
+      allOf:
+        - $ref: '#/components/schemas/RequirementBase'
+        - type: object
+          properties:
+            _id:
+              $ref: '#/components/schemas/ObjectID'
+            institutionId: # Populated
+              oneOf:
+                - $ref: '#/components/schemas/ObjectID'
+                - $ref: '#/components/schemas/InstitutionUser' # Reference full user schema
+            warehouseId: # Populated
+              oneOf:
+                - $ref: '#/components/schemas/ObjectID'
+                - $ref: '#/components/schemas/WarehouseUser' # Reference full user schema
+            logisticId: # Populated (basic info)
+              oneOf:
+                - $ref: '#/components/schemas/ObjectID'
+                - type: object
+                  properties:
+                    _id: {$ref: '#/components/schemas/ObjectID'}
+                    overallStatus: { type: string, example: "Shipped"}
+                    # Add other useful Requirement fields if needed
+
+    PaginatedRequirementResponse:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/PaginationMetadata'
+      properties:
+        docs:
+          type: array
+          items:
+            $ref: '#/components/schemas/RequirementResponse' # Array of populated requirement documents
+      required:
+        - docs
+
+    # === Logistic Schemas ===
+    LogisticVehicleTimestampsInput:
+      type: object
+      properties:
+        loadedAt:
+          $ref: '#/components/schemas/Timestamp'
+        departedAt:
+          $ref: '#/components/schemas/Timestamp'
+      required:
+        - loadedAt
+        - departedAt
+    LogisticVehicleTimestamps:
+      allOf:
+        - $ref: '#/components/schemas/LogisticVehicleTimestampsInput'
+        - type: object
+          properties:
+            arrivedAt:
+              $ref: '#/components/schemas/Timestamp'
+              nullable: true
+            unloadedAt:
+              $ref: '#/components/schemas/Timestamp'
+              nullable: true
+    LogisticVehicleBase:
+      type: object
+      properties:
+        vehicleNumber:
+          type: string
+          example: "UP32 AB 1234"
+        driverName:
+          type: string
+          example: "Rajesh Kumar"
+        driverContact:
+          type: string
+          example: "9876543210"
+      required:
+        - vehicleNumber
+        - driverName
+        - driverContact
+    LogisticVehicleInput:
+      allOf:
+        - $ref: '#/components/schemas/LogisticVehicleBase'
+        - type: object
+          properties:
+            timestamps:
+              $ref: '#/components/schemas/LogisticVehicleTimestampsInput'
+          required:
+            - timestamps
+    LogisticVehicle:
+       allOf:
+        - $ref: '#/components/schemas/LogisticVehicleBase'
+        - type: object
+          properties:
+            timestamps:
+              $ref: '#/components/schemas/LogisticVehicleTimestamps'
+          required:
+            - timestamps
+
+    LogisticMedicineStockBatch:
+      type: object
+      properties:
+        batchNumber:
+          type: string
+          example: "BATCH123"
+        expiryDate:
+          $ref: '#/components/schemas/Timestamp'
+        quantity:
+          type: number
+          description: Quantity of this batch included in the shipment
+          example: 50
+        packetSize:
+          type: object
+          properties:
+             strips: {type: number}
+             tabletsPerStrip: {type: number}
+        sellingPrice:
+          type: number
+          format: float
+          description: Selling price per unit at time of shipment
+          example: 55.00
+        mrp:
+          type: number
+          format: float
+          description: MRP per unit
+          example: 65.00
+      required:
+        - batchNumber
+        - expiryDate
+        - quantity
+        - sellingPrice
+        - mrp
+
+    LogisticMedicine:
+      type: object
+      properties:
+        medicine:
+          $ref: '#/components/schemas/ObjectID' # Populated in response
+        stocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogisticMedicineStockBatch'
+      required:
+        - medicine
+        - stocks
+    LogisticMedicineResponse:
+       allOf:
+        - $ref: '#/components/schemas/LogisticMedicine'
+        - type: object
+          properties:
+            medicine: # Populated
+              oneOf:
+                - $ref: '#/components/schemas/ObjectID'
+                - $ref: '#/components/schemas/Medicine' # Reference the new Medicine schema
+
+    LogisticBase:
+      type: object
+      properties:
+        shipmentId:
+          type: string
+          example: "SHP12345"
+        requirementId:
+          $ref: '#/components/schemas/ObjectID'
+        warehouse:
+          $ref: '#/components/schemas/ObjectID'
+        institution:
+          $ref: '#/components/schemas/ObjectID'
+        medicines:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogisticMedicineResponse'
+        vehicles:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogisticVehicle'
+        status:
+          type: string
+          enum: [Pending, In Transit, Delivered]
+          default: Pending
+          description: Status updated by the warehouse
+        receivedStatus:
+          type: string
+          enum: [Pending, Received]
+          default: Pending
+          description: Status updated by the receiving institution
+        isDeleted:
+          type: boolean
+          default: false
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+      required:
+        - shipmentId
+        - requirementId
+        - warehouse
+        - institution
+        - medicines
+        - vehicles
+        - status
+        - receivedStatus
+
+    LogisticResponse:
+       allOf:
+        - $ref: '#/components/schemas/LogisticBase'
+        - type: object
+          properties:
+            _id:
+              $ref: '#/components/schemas/ObjectID'
+            warehouse: # Populated
+              oneOf:
+                - $ref: '#/components/schemas/ObjectID'
+                - $ref: '#/components/schemas/WarehouseUser'
+            institution: # Populated
+              oneOf:
+                - $ref: '#/components/schemas/ObjectID'
+                - $ref: '#/components/schemas/InstitutionUser'
+            requirementId: # Populated (basic info)
+              oneOf:
+                - $ref: '#/components/schemas/ObjectID'
+                - type: object
+                  properties:
+                    _id: {$ref: '#/components/schemas/ObjectID'}
+                    overallStatus: { type: string, example: "Shipped"}
+                    # Add other useful Requirement fields if needed
+
+    PaginatedLogisticResponse:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/PaginationMetadata'
+      properties:
+        docs:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogisticResponse'
+      required:
+        - docs
+
+    # === Warehouse Stock Schemas ===
+    WarehouseStockBatchBase:
+      type: object
+      properties:
+        batchName:
+          type: string
+          example: "BATCHABC1"
+        quantity:
+          type: number
+          description: Total quantity (e.g., strips) currently in this batch
+          example: 480
+        expiryDate:
+          $ref: '#/components/schemas/Timestamp'
+        purchasePrice:
+          type: number
+          format: float
+          example: 45.00
+        sellingPrice:
+          type: number
+          format: float
+          example: 55.00
+        mrp:
+          type: number
+          format: float
+          example: 65.00
+        receivedDate:
+          $ref: '#/components/schemas/Timestamp'
+        mfgDate:
+          $ref: '#/components/schemas/Timestamp'
+          nullable: true
+        packetSize:
+          type: object
+          properties:
+            strips: { type: number }
+            tabletsPerStrip: { type: number }
+      required:
+        - batchName
+        - quantity
+        - expiryDate
+        - purchasePrice
+        - sellingPrice
+        - mrp
+        - receivedDate
+    WarehouseStockBatchInput:
+      allOf:
+        - $ref: '#/components/schemas/WarehouseStockBatchBase'
+        # No reservedQuantity in input
+    WarehouseStockBatch:
+      allOf:
+        - $ref: '#/components/schemas/WarehouseStockBatchBase'
+        - type: object
+          properties:
+            _id:
+              $ref: '#/components/schemas/ObjectID'
+            reservedQuantity:
+              type: number
+              default: 0
+              description: Quantity reserved for pending requirements/shipments
+              example: 20
+            createdAt:
+              $ref: '#/components/schemas/Timestamp'
+
+    WarehouseStockItemBase:
+      type: object
+      properties:
+        warehouseId:
+          $ref: '#/components/schemas/ObjectID'
+        medicineId:
+          $ref: '#/components/schemas/ObjectID'
+        stocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/WarehouseStockBatch'
+        isDeleted:
+          type: boolean
+          default: false
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+      required:
+        - warehouseId
+        - medicineId
+        - stocks
+    WarehouseStockItemResponse:
+       allOf:
+        - $ref: '#/components/schemas/WarehouseStockItemBase'
+        - type: object
+          properties:
+            _id:
+              $ref: '#/components/schemas/ObjectID'
+            warehouseId: # Populated
+              oneOf:
+                - $ref: '#/components/schemas/ObjectID'
+                - $ref: '#/components/schemas/WarehouseUser'
+            medicineId: # Populated
+              oneOf:
+                - $ref: '#/components/schemas/ObjectID'
+                - $ref: '#/components/schemas/Medicine' # Reference the new Medicine schema
+
+    PaginatedWarehouseStockResponse:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/PaginationMetadata'
+      properties:
+        docs:
+          type: array
+          items:
+            $ref: '#/components/schemas/WarehouseStockItemResponse'
+      required:
+        - docs
+
+    AvailableStockItem: # Schema for GET /warehouse-stock/available
+      type: object
+      properties:
+        # Assuming this references the actual Medicine schema now
+        medicine: # Changed from medicineId for consistency if populated
+          $ref: '#/components/schemas/Medicine' # Reference the new Medicine schema
+        # Remove individual fields if they are now part of the Medicine schema ref
+        # name:
+        #   type: string
+        #   example: "Paracetamol 500mg"
+        # manufacturer: # This might be populated within the Medicine ref
+        #   type: string
+        #   example: "Pharma Inc."
+        # category:
+        #   type: string
+        #   example: "Pain Relief"
+        # unit:
+        #   type: string
+        #   example: "strip"
+        totalAvailableQuantity:
+          type: number
+          description: Sum of available quantities (quantity - reservedQuantity) across all non-expired batches for this medicine in all warehouses.
+          example: 1500
+      required:
+        - medicine # Changed from medicineId
+        - totalAvailableQuantity
+
+    PaginatedAvailableStockResponse:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/PaginationMetadata'
+      properties:
+        docs:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailableStockItem'
+      required:
+        - docs
+
+    # === Salt Schemas ===
+    Salt:
+      type: object
+      properties:
+        _id:
+          $ref: '#/components/schemas/ObjectID'
+        name:
+          type: string
+          description: Unique name of the salt
+          example: "Paracetamol"
+        useCase:
+          type: string
+          description: Description of the salt's use case
+          example: "Pain relief and fever reduction"
+        createdByRole:
+          type: string
+          enum: [Admin, Warehouse]
+        createdBy:
+          type: string # Model shows string, maybe ObjectId ref intended?
+          example: "60d0fe4f5311236168a109ca"
+        isDeleted:
+          type: boolean
+          default: false
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+      required:
+        - name
+        - createdByRole
+        - createdBy
+
+    PaginatedSaltResponse:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/PaginationMetadata'
+      properties:
+        docs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Salt'
+      required:
+        - docs
+
+    # === Manufacturer Schemas ===
+    ManufacturerBase: # Fields expected in input/output based on controller
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the manufacturer (should be unique)
+          example: "PharmaCorp Inc."
+        email:
+          type: string
+          format: email
+          description: Contact email address
+          example: "contact@pharmacorp.com"
+        phone:
+          type: string
+          description: Contact phone number
+          example: "123-456-7890"
+        address:
+          type: string
+          description: Full address of the manufacturer
+          example: "123 Pharma Lane, Suite 100, MediCity, ST 12345"
+      required:
+        - name # Name seems essential
+    ManufacturerInput: # For POST/PUT requests
+      allOf:
+        - $ref: '#/components/schemas/ManufacturerBase'
+    Manufacturer: # For responses
+      allOf:
+        - $ref: '#/components/schemas/ManufacturerBase'
+        - type: object
+          properties:
+            _id:
+              $ref: '#/components/schemas/ObjectID'
+            # Fields from model (might differ from controller usage shown above):
+            # medicalRepresentator:
+            #   type: object
+            #   properties:
+            #     name: { type: string }
+            #     contact: { type: number }
+            # createdByRole:
+            #   type: string
+            #   enum: [Admin, Warehouse]
+            # createdBy:
+            #   type: string
+            isDeleted:
+              type: boolean
+              default: false
+            createdAt:
+              $ref: '#/components/schemas/Timestamp'
+            updatedAt:
+              $ref: '#/components/schemas/Timestamp'
+
+    PaginatedManufacturerResponse:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/PaginationMetadata'
+      properties:
+        docs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Manufacturer'
+      required:
+        - docs
+
+    # === Institution Schemas ===
+    PaginatedInstitutionResponse:
+       type: object
+       allOf:
+         - $ref: '#/components/schemas/PaginationMetadata'
+       properties:
+         docs:
+           type: array
+           items:
+             $ref: '#/components/schemas/InstitutionUser' # Using the existing detailed schema
+       required:
+         - docs
+
+    # === Warehouse Schemas ===
+    # Note: WarehouseUser schema is already defined under User Schemas
+    PaginatedWarehouseResponse:
+       type: object
+       allOf:
+         - $ref: '#/components/schemas/PaginationMetadata'
+       properties:
+         docs:
+           type: array
+           items:
+             $ref: '#/components/schemas/WarehouseUser' # Using the existing detailed schema
+       required:
+         - docs
+
+    # === Medicine Schemas === (Proper Definitions)
+    MedicineBase: # Core fields
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the medicine
+          example: "Paracetamol 500mg Tablets"
+        category:
+          type: string
+          description: Category of the medicine
+          example: "Pain Relief"
+        unit:
+          type: string
+          description: Unit of measurement (e.g., strip, bottle, vial)
+          example: "strip"
+        # Add other relevant fields from your Medicine model if needed
+        # e.g., description, hsnCode, etc.
+      required:
+        - name
+        - category
+        - unit
+    MedicineInput: # For POST/PUT requests
+      allOf:
+        - $ref: '#/components/schemas/MedicineBase'
+        - type: object
+          properties:
+            saltId:
+              $ref: '#/components/schemas/ObjectID'
+              description: ID of the associated salt
+            manufacturerId:
+              $ref: '#/components/schemas/ObjectID'
+              description: ID of the manufacturer
+          required:
+            - saltId
+            - manufacturerId
+    Medicine: # Base Response schema (includes IDs and timestamps)
+      allOf:
+        - $ref: '#/components/schemas/MedicineBase'
+        - type: object
+          properties:
+            _id:
+              $ref: '#/components/schemas/ObjectID'
+            saltId:
+              $ref: '#/components/schemas/ObjectID'
+            manufacturerId:
+              $ref: '#/components/schemas/ObjectID'
+            isDeleted:
+              type: boolean
+              default: false
+            createdAt:
+              $ref: '#/components/schemas/Timestamp'
+            updatedAt:
+              $ref: '#/components/schemas/Timestamp'
+    MedicineResponse: # Full Response schema with populated refs
+      allOf:
+        - $ref: '#/components/schemas/Medicine' # Inherit base fields + IDs
+        - type: object
+          properties:
+            saltId: # Populated
+              oneOf:
+                - $ref: '#/components/schemas/ObjectID'
+                - $ref: '#/components/schemas/Salt' # Reference Salt schema
+            manufacturerId: # Populated
+              oneOf:
+                - $ref: '#/components/schemas/ObjectID'
+                - $ref: '#/components/schemas/Manufacturer' # Reference Manufacturer schema
+
+    PaginatedMedicineResponse: # Already defined earlier, ensure it uses MedicineResponse
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/PaginationMetadata'
+      properties:
+        docs:
+          type: array
+          items:
+            $ref: '#/components/schemas/MedicineResponse' # Use the detailed response schema
+      required:
+        - docs
+
+    # === Health Check Schema ===
+    HealthCheckResponseData:
+      type: object
+      properties:
+        status:
+          type: string
+          example: OK
+          description: Indicates the health status.
+        message:
+          type: string
+          example: "Service is up and running"
+          description: A human-readable status message.
+        timestamp:
+          $ref: '#/components/schemas/Timestamp'
+          description: The time the health check was performed.
+      required:
+        - status
+        - message
+        - timestamp
+    HealthCheckResponse: # Assuming it uses the standard ApiResponse wrapper
+      type: object
+      properties:
+        statusCode:
+          type: integer
+          example: 200
+        data:
+          $ref: '#/components/schemas/HealthCheckResponseData'
+        message:
+          type: string
+          example: "Health check successful"
+      required:
+        - statusCode
+        - data
+        - message
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      description: Page number for pagination
+      required: false
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+    LimitParam:
+      name: limit
+      in: query
+      description: Number of items per page
+      required: false
+      schema:
+        type: integer
+        default: 10
+        minimum: 1
+    SortByParam:
+      name: sortBy
+      in: query
+      description: Field to sort by
+      required: false
+      schema:
+        type: string
+        default: createdAt
+    SortOrderParam:
+      name: sortOrder
+      in: query
+      description: Sort order (asc/desc)
+      required: false
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: desc
+
+  securitySchemes:
+    bearerAuth: # Define the security scheme
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        JWT Access Token obtained from the `/auth/login` endpoint.
+        Include the token in the Authorization header using the Bearer scheme.
+        Example: `Authorization: Bearer <YOUR_TOKEN>`

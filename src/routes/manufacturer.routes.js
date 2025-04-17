@@ -9,7 +9,7 @@ import { USER_TYPES } from "../utils/constants.js";
 import {
   deleteManufacturer,
   updateManufacturer,
-} from "../controllers/manufactor.controller.js";
+} from "../controllers/manufacturer.controller.js";
 
 const router = Router();
 

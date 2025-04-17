@@ -1,0 +1,51 @@
+import { Warehouse } from "../models/warehouse.model.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+
+const getAllWarehouses = asyncHandler(async (req, res) => {
+  const {
+    page = 1,
+    limit = 10,
+    search = "",
+    sortBy = "createdAt",
+    sortOrder = "desc",
+  } = req.query;
+
+  const query = {};
+
+  if (search) {
+    query.$or = [
+      { name: { $regex: search, $options: "i" } },
+      { email: { $regex: search, $options: "i" } },
+      { registrationNumber: { $regex: search, $options: "i" } },
+      { warehouseCode: { $regex: search, $options: "i" } },
+    ];
+  }
+
+  const options = {
+    page: parseInt(page, 10),
+    limit: parseInt(limit, 10),
+    sort: { [sortBy]: sortOrder === "desc" ? -1 : 1 },
+    lean: true, // Optional: improves performance
+  };
+
+  const result = await Warehouse.paginate(query, options);
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      result, // The result object contains docs, totalDocs, limit, page, etc.
+      "All warehouses fetched successfully"
+    )
+  );
+});
+
+const getWarehouseById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const warehouse = await Warehouse.findById(id);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, warehouse, "Warehouse fetched successfully"));
+});
+
+export { getAllWarehouses, getWarehouseById };
