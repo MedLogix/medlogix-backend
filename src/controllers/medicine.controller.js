@@ -24,18 +24,21 @@ const getAllMedicines = asyncHandler(async (req, res) => {
     limit: parseInt(limit, 10),
     sort: { [sortBy]: sortOrder === "desc" ? -1 : 1 },
     lean: true,
+    populate: ["salts", "manufacturer"],
   };
 
   const result = await Medicine.paginate(query, options);
 
   return res
     .status(200)
-    .json(new ApiResponse(200, result, "Salts fetched successfully"));
+    .json(new ApiResponse(200, result, "Medicines fetched successfully"));
 });
 
 const getMedicineById = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const medicine = await Medicine.findById(id);
+  const medicine = await Medicine.findById(id)
+    .populate("salts")
+    .populate("manufacturer");
 
   if (!medicine) {
     return res
@@ -55,15 +58,10 @@ const getMedicineById = asyncHandler(async (req, res) => {
 });
 
 const createMedicine = asyncHandler(async (req, res) => {
-  const {
-    name,
-    salts,
-    manufacturer,
-    isTablets,
-    medicineType,
-    createdByRole,
-    createdBy,
-  } = req.body;
+  const { name, salts, manufacturer, isTablets, medicineType } = req.body;
+  const createdByRole = req.user.userType;
+  const createdBy = req.user._id;
+
   const medicine = await Medicine.create({
     name,
     salts,

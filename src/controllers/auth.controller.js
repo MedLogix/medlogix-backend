@@ -40,10 +40,17 @@ const registerUser = asyncHandler(async (req, res) => {
 
   const existedUser = await Model.findOne({ email });
   if (existedUser) {
-    throw new ApiError(
-      409,
-      `${userType.charAt(0).toUpperCase() + userType.slice(1)} with email already exists`
-    );
+    if (existedUser?.isVerified === "pending") {
+      throw new ApiError(
+        409,
+        `${userType.charAt(0).toUpperCase() + userType.slice(1)} is pending verification. Please wait for approval.`
+      );
+    } else {
+      throw new ApiError(
+        409,
+        `${userType.charAt(0).toUpperCase() + userType.slice(1)} with email already exists. Please login to continue.`
+      );
+    }
   }
 
   // Include userType in the data being saved if the model schema needs it

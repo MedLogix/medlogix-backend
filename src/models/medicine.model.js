@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { USER_TYPES } from "../utils/constants.js";
+import mongoosePaginate from "mongoose-paginate-v2";
 
 const MedicineSchema = new mongoose.Schema(
   {
@@ -33,5 +34,7 @@ const MedicineSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+MedicineSchema.plugin(mongoosePaginate);
 
 export const Medicine = mongoose.model("Medicine", MedicineSchema);
