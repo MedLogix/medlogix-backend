@@ -137,7 +137,11 @@ const loginUser = asyncHandler(async (req, res) => {
   return res.status(200).json(
     new ApiResponse(
       200,
-      { user: loggedInUser, accessToken }, // Send user object without password
+      {
+        user: loggedInUser,
+        userRole: userType,
+        accessToken,
+      }, // Send user object without password
       `${userType.charAt(0).toUpperCase() + userType.slice(1)} logged in successfully`
     )
   );
@@ -148,9 +152,19 @@ const getCurrentUser = asyncHandler(async (req, res) => {
   if (!req.user) {
     throw new ApiError(401, "User not authenticated");
   }
+
+  const userRole = req.user.userType;
+  const user = req.user.toObject();
+
   return res
     .status(200)
-    .json(new ApiResponse(200, req.user, "Current user fetched successfully"));
+    .json(
+      new ApiResponse(
+        200,
+        { user, userRole },
+        "Current user fetched successfully"
+      )
+    );
 });
 
 export { getCurrentUser, loginUser, registerUser };
