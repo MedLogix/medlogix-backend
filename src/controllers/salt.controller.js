@@ -51,7 +51,10 @@ const getSaltById = asyncHandler(async (req, res) => {
 });
 
 const createSalt = asyncHandler(async (req, res) => {
-  const { name, useCase, createdByRole, createdBy } = req.body;
+  const { name, useCase } = req.body;
+  const createdByRole = req.user.userType;
+  const createdBy = req.user._id;
+
   const salt = await Salt.create({
     name,
     useCase,

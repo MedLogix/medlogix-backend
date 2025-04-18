@@ -57,13 +57,17 @@ const getManufacturerById = asyncHandler(async (req, res) => {
 });
 
 const createManufacturer = asyncHandler(async (req, res) => {
-  const { name, email, phone, address } = req.body;
+  const { name, medicalRepresentator } = req.body;
+  const createdByRole = req.user.userType;
+  const createdBy = req.user._id;
+
   const manufacturer = await Manufacturer.create({
     name,
-    email,
-    phone,
-    address,
+    medicalRepresentator,
+    createdByRole,
+    createdBy,
   });
+
   return res
     .status(201)
     .json(
