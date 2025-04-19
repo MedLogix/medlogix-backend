@@ -16,32 +16,21 @@ const InstitutionUsageLogSchema = new mongoose.Schema(
       index: true,
     },
     batchName: {
-      // Optional: If usage is logged against a specific batch
       type: String,
     },
-    quantityUsed: {
-      // Quantity in strips
+    quantity: {
       type: Number,
       required: true,
       min: 1,
     },
-    loggedByUserId: {
-      // Optional: Link to the user who logged the usage
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User", // Assuming a general User model or Admin model exists
-    },
-    notes: {
-      // Optional field for any specific notes about the usage
+    type: {
       type: String,
-    },
-    logTimestamp: {
-      // When the usage was logged in the system
-      type: Date,
-      default: Date.now,
+      enum: ["usage", "addition"],
+      required: true,
     },
   },
   {
-    timestamps: true, // Adds createdAt and updatedAt automatically
+    timestamps: true,
   }
 );
 
