@@ -48,4 +48,41 @@ const getWarehouseById = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, warehouse, "Warehouse fetched successfully"));
 });
 
-export { getAllWarehouses, getWarehouseById };
+const approveWarehouse = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const warehouse = await Warehouse.findByIdAndUpdate(
+    id,
+    {
+      isVerified: "verified",
+    },
+    { new: true }
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, warehouse, "Warehouse approved successfully"));
+});
+
+const rejectWarehouse = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+  const warehouse = await Warehouse.findByIdAndUpdate(
+    id,
+    {
+      verificationStatus: "rejected",
+      verificationRejectedReason: reason,
+    },
+    { new: true }
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, warehouse, "Warehouse rejected successfully"));
+});
+
+export {
+  getAllWarehouses,
+  getWarehouseById,
+  approveWarehouse,
+  rejectWarehouse,
+};

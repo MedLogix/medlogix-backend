@@ -40,10 +40,14 @@ const InstitutionSchema = new mongoose.Schema(
         email: { type: String, required: false }, // alok.verma@uphospital.in
       },
     ],
-    isVerified: {
+    verificationStatus: {
       type: String,
-      enum: ["pending", "verified"],
+      enum: ["pending", "verified", "rejected"],
       default: "pending",
+    },
+    verificationRejectedReason: {
+      type: String,
+      required: false,
     },
   },
   {

@@ -39,10 +39,14 @@ const WarehouseSchema = new mongoose.Schema(
         email: { type: String, required: false }, // manager@warehouse.in
       },
     ],
-    isVerified: {
+    verificationStatus: {
       type: String,
-      enum: ["pending", "verified"],
+      enum: ["pending", "verified", "rejected"],
       default: "pending",
+    },
+    verificationRejectedReason: {
+      type: String,
+      required: false,
     },
   },
   {

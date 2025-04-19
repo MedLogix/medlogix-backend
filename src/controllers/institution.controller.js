@@ -49,4 +49,45 @@ const getInstitutionById = asyncHandler(async (req, res) => {
     );
 });
 
-export { getAllInstitutions, getInstitutionById };
+const approveInstitution = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const institution = await Institution.findByIdAndUpdate(
+    id,
+    {
+      isVerified: "verified",
+    },
+    { new: true }
+  );
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, institution, "Institution approved successfully")
+    );
+});
+
+const rejectInstitution = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+  const institution = await Institution.findByIdAndUpdate(
+    id,
+    {
+      verificationStatus: "rejected",
+      verificationRejectedReason: reason,
+    },
+    { new: true }
+  );
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, institution, "Institution rejected successfully")
+    );
+});
+
+export {
+  getAllInstitutions,
+  getInstitutionById,
+  approveInstitution,
+  rejectInstitution,
+};
