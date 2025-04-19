@@ -9,16 +9,29 @@ const getAllInstitutions = asyncHandler(async (req, res) => {
     search = "",
     sortBy = "createdAt",
     sortOrder = "desc",
+    filters,
   } = req.query;
+
+  const _filters = JSON.parse(filters);
+
+  const { verificationStatus } = _filters;
 
   const query = {};
 
   if (search) {
     query.$or = [
       { name: { $regex: search, $options: "i" } },
-      { email: { $regex: search, $options: "i" } },
+      { institutionCode: { $regex: search, $options: "i" } },
       { registrationNumber: { $regex: search, $options: "i" } },
+      { email: { $regex: search, $options: "i" } },
     ];
+  }
+
+  if (
+    verificationStatus &&
+    ["pending", "verified", "rejected"].includes(verificationStatus)
+  ) {
+    query.verificationStatus = verificationStatus;
   }
 
   const options = {
@@ -54,7 +67,7 @@ const approveInstitution = asyncHandler(async (req, res) => {
   const institution = await Institution.findByIdAndUpdate(
     id,
     {
-      isVerified: "verified",
+      verificationStatus: "verified",
     },
     { new: true }
   );

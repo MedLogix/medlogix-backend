@@ -22,10 +22,10 @@ router
 
 router
   .route("/:id/approve")
-  .put(verifyJWTAndAuthorize([USER_TYPES.ADMIN]), approveWarehouse);
+  .post(verifyJWTAndAuthorize([USER_TYPES.ADMIN]), approveWarehouse);
 
 router
   .route("/:id/reject")
-  .put(verifyJWTAndAuthorize([USER_TYPES.ADMIN]), rejectWarehouse);
+  .post(verifyJWTAndAuthorize([USER_TYPES.ADMIN]), rejectWarehouse);
 
 export default router;

@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { USER_TYPES } from "../utils/constants.js";
+import mongoosePaginate from "mongoose-paginate-v2";
 
 const WarehouseSchema = new mongoose.Schema(
   {
@@ -78,5 +79,7 @@ WarehouseSchema.methods.generateAccessToken = function () {
     }
   );
 };
+
+WarehouseSchema.plugin(mongoosePaginate);
 
 export const Warehouse = mongoose.model("Warehouse", WarehouseSchema);

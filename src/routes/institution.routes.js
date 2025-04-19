@@ -29,10 +29,10 @@ router
 
 router
   .route("/:id/approve")
-  .put(verifyJWTAndAuthorize([USER_TYPES.ADMIN]), approveInstitution);
+  .post(verifyJWTAndAuthorize([USER_TYPES.ADMIN]), approveInstitution);
 
 router
   .route("/:id/reject")
-  .put(verifyJWTAndAuthorize([USER_TYPES.ADMIN]), rejectInstitution);
+  .post(verifyJWTAndAuthorize([USER_TYPES.ADMIN]), rejectInstitution);
 
 export default router;
