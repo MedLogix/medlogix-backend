@@ -1,0 +1,353 @@
+[{
+  "_id": {
+    "$oid": "6802327519615d4417c321d0"
+  },
+  "name": "Crocin Advance",
+  "salts": [
+    {
+      "$oid": "6802327419615d4417c321b6"
+    }
+  ],
+  "manufacturer": {
+    "$oid": "6802327519615d4417c321c6"
+  },
+  "isTablets": true,
+  "medicineType": "Tablet",
+  "createdByRole": "admin",
+  "createdBy": "68022fae18b0aa4d0c190d40",
+  "isDeleted": false,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-04-18T11:07:33.133Z"
+  },
+  "updatedAt": {
+    "$date": "2025-04-18T11:07:33.133Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6802327519615d4417c321d1"
+  },
+  "name": "Calpol 650",
+  "salts": [
+    {
+      "$oid": "6802327419615d4417c321b6"
+    }
+  ],
+  "manufacturer": {
+    "$oid": "6802327519615d4417c321c6"
+  },
+  "isTablets": true,
+  "medicineType": "Tablet",
+  "createdByRole": "admin",
+  "createdBy": "68022fae18b0aa4d0c190d40",
+  "isDeleted": false,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-04-18T11:07:33.133Z"
+  },
+  "updatedAt": {
+    "$date": "2025-04-18T11:07:33.133Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6802327519615d4417c321d2"
+  },
+  "name": "Dolo 650",
+  "salts": [
+    {
+      "$oid": "6802327419615d4417c321b6"
+    }
+  ],
+  "manufacturer": {
+    "$oid": "6802327519615d4417c321ca"
+  },
+  "isTablets": true,
+  "medicineType": "Tablet",
+  "createdByRole": "admin",
+  "createdBy": "68022fae18b0aa4d0c190d40",
+  "isDeleted": false,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-04-18T11:07:33.133Z"
+  },
+  "updatedAt": {
+    "$date": "2025-04-18T11:07:33.133Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6802327519615d4417c321d3"
+  },
+  "name": "Voveran SR 100",
+  "salts": [
+    {
+      "$oid": "6802327419615d4417c321b7"
+    }
+  ],
+  "manufacturer": {
+    "$oid": "6802327519615d4417c321cc"
+  },
+  "isTablets": true,
+  "medicineType": "Tablet",
+  "createdByRole": "admin",
+  "createdBy": "68022fae18b0aa4d0c190d40",
+  "isDeleted": false,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-04-18T11:07:33.133Z"
+  },
+  "updatedAt": {
+    "$date": "2025-04-18T11:07:33.133Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6802327519615d4417c321d4"
+  },
+  "name": "Moxikind-CV 625",
+  "salts": [
+    {
+      "$oid": "6802327419615d4417c321b8"
+    },
+    {
+      "$oid": "6802327419615d4417c321b9"
+    }
+  ],
+  "manufacturer": {
+    "$oid": "6802327519615d4417c321c7"
+  },
+  "isTablets": true,
+  "medicineType": "Tablet",
+  "createdByRole": "admin",
+  "createdBy": "68022fae18b0aa4d0c190d40",
+  "isDeleted": false,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-04-18T11:07:33.134Z"
+  },
+  "updatedAt": {
+    "$date": "2025-04-18T11:07:33.134Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6802327519615d4417c321d5"
+  },
+  "name": "Azee 500",
+  "salts": [
+    {
+      "$oid": "6802327419615d4417c321ba"
+    }
+  ],
+  "manufacturer": {
+    "$oid": "6802327519615d4417c321c2"
+  },
+  "isTablets": true,
+  "medicineType": "Tablet",
+  "createdByRole": "admin",
+  "createdBy": "68022fae18b0aa4d0c190d40",
+  "isDeleted": false,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-04-18T11:07:33.134Z"
+  },
+  "updatedAt": {
+    "$date": "2025-04-18T11:07:33.134Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6802327519615d4417c321d6"
+  },
+  "name": "Glycomet SR 500",
+  "salts": [
+    {
+      "$oid": "6802327419615d4417c321bb"
+    }
+  ],
+  "manufacturer": {
+    "$oid": "6802327519615d4417c321cb"
+  },
+  "isTablets": true,
+  "medicineType": "Tablet",
+  "createdByRole": "admin",
+  "createdBy": "68022fae18b0aa4d0c190d40",
+  "isDeleted": false,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-04-18T11:07:33.134Z"
+  },
+  "updatedAt": {
+    "$date": "2025-04-18T11:07:33.134Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6802327519615d4417c321d7"
+  },
+  "name": "Cetrizine Tablet (Cipla)",
+  "salts": [
+    {
+      "$oid": "6802327419615d4417c321bc"
+    }
+  ],
+  "manufacturer": {
+    "$oid": "6802327519615d4417c321c2"
+  },
+  "isTablets": true,
+  "medicineType": "Tablet",
+  "createdByRole": "admin",
+  "createdBy": "68022fae18b0aa4d0c190d40",
+  "isDeleted": false,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-04-18T11:07:33.134Z"
+  },
+  "updatedAt": {
+    "$date": "2025-04-18T11:07:33.134Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6802327519615d4417c321d8"
+  },
+  "name": "Omez 20",
+  "salts": [
+    {
+      "$oid": "6802327419615d4417c321bd"
+    }
+  ],
+  "manufacturer": {
+    "$oid": "6802327519615d4417c321c3"
+  },
+  "isTablets": false,
+  "medicineType": "Capsule",
+  "createdByRole": "admin",
+  "createdBy": "68022fae18b0aa4d0c190d40",
+  "isDeleted": false,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-04-18T11:07:33.134Z"
+  },
+  "updatedAt": {
+    "$date": "2025-04-18T11:07:33.134Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6802327519615d4417c321d9"
+  },
+  "name": "Pantocid DSR",
+  "salts": [
+    {
+      "$oid": "6802327419615d4417c321be"
+    },
+    {
+      "$oid": "6802327419615d4417c321bf"
+    }
+  ],
+  "manufacturer": {
+    "$oid": "6802327519615d4417c321c1"
+  },
+  "isTablets": false,
+  "medicineType": "Capsule",
+  "createdByRole": "admin",
+  "createdBy": "68022fae18b0aa4d0c190d40",
+  "isDeleted": false,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-04-18T11:07:33.134Z"
+  },
+  "updatedAt": {
+    "$date": "2025-04-18T11:07:33.134Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6802327519615d4417c321da"
+  },
+  "name": "Augmentin 625 Duo",
+  "salts": [
+    {
+      "$oid": "6802327419615d4417c321b8"
+    },
+    {
+      "$oid": "6802327419615d4417c321b9"
+    }
+  ],
+  "manufacturer": {
+    "$oid": "6802327519615d4417c321c6"
+  },
+  "isTablets": true,
+  "medicineType": "Tablet",
+  "createdByRole": "admin",
+  "createdBy": "68022fae18b0aa4d0c190d40",
+  "isDeleted": false,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-04-18T11:07:33.134Z"
+  },
+  "updatedAt": {
+    "$date": "2025-04-18T11:07:33.134Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6802327519615d4417c321db"
+  },
+  "name": "Clavam 625",
+  "salts": [
+    {
+      "$oid": "6802327419615d4417c321b8"
+    },
+    {
+      "$oid": "6802327419615d4417c321b9"
+    }
+  ],
+  "manufacturer": {
+    "$oid": "6802327519615d4417c321c9"
+  },
+  "isTablets": true,
+  "medicineType": "Tablet",
+  "createdByRole": "admin",
+  "createdBy": "68022fae18b0aa4d0c190d40",
+  "isDeleted": false,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-04-18T11:07:33.134Z"
+  },
+  "updatedAt": {
+    "$date": "2025-04-18T11:07:33.134Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68028919d55307e21f1171c9"
+  },
+  "name": "ayush",
+  "salts": [
+    {
+      "$oid": "6802327419615d4417c321b6"
+    },
+    {
+      "$oid": "6802327419615d4417c321b8"
+    }
+  ],
+  "manufacturer": {
+    "$oid": "6802327519615d4417c321c8"
+  },
+  "isTablets": true,
+  "medicineType": "asdasas",
+  "createdByRole": "admin",
+  "createdBy": "68022fae18b0aa4d0c190d40",
+  "isDeleted": true,
+  "createdAt": {
+    "$date": "2025-04-18T17:17:13.903Z"
+  },
+  "updatedAt": {
+    "$date": "2025-04-18T17:19:59.491Z"
+  },
+  "__v": 0
+}]

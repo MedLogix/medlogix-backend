@@ -4,6 +4,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { InstitutionStock } from "../models/institutionStock.model.js";
 import mongoose from "mongoose";
 import { USER_TYPES } from "../utils/constants.js"; // Import USER_TYPES
+import { InstitutionUsageLog } from "../models/institutionUsageLog.model.js"; // Import the new log model
 
 // @desc    Manually add stock batch(es) possessed by the institution
 // @route   POST /api/institution-stock
@@ -280,6 +281,131 @@ const deleteStock = asyncHandler(async (req, res) => {
     );
 });
 
+/**
+ * @description Log stock usage for an institution
+ * @route POST /api/v1/institution-stock/log-usage
+ * @access Private (Institution)
+ */
+const logUsage = asyncHandler(async (req, res) => {
+  const { medicineId, quantityUsed, batchName, notes } = req.body;
+  const institutionId = req.user._id; // Assuming user ID is attached by auth middleware
+
+  // 1. Validate input
+  if (!medicineId || !quantityUsed) {
+    throw new ApiError(400, "Medicine ID and quantity used are required.");
+  }
+  if (quantityUsed <= 0) {
+    throw new ApiError(400, "Quantity used must be a positive number.");
+  }
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    // 2. Find the institution's stock for the medicine
+    const stockDoc = await InstitutionStock.findOne({
+      institutionId,
+      medicineId,
+      isDeleted: false,
+    }).session(session);
+
+    if (!stockDoc) {
+      throw new ApiError(
+        404,
+        "Stock not found for this medicine in the institution."
+      );
+    }
+
+    // 3. Implement logic to find the correct batch(es) and decrement quantity
+    //    - If batchName is provided, find that specific batch.
+    //    - If batchName is NOT provided, apply FIFO (First-In, First-Out) or FEFO (First-Expired, First-Out)
+    //      by sorting the stockDoc.stocks array (e.g., by receivedDate or expiryDate).
+    //    - Decrement 'currentQuantityInStrips' from the chosen batch(es).
+    //    - Handle cases where usage spans multiple batches.
+    //    - Ensure sufficient stock is available across relevant batches.
+
+    // !!! Placeholder for complex decrement logic !!!
+    // This part needs careful implementation based on chosen strategy (FIFO/FEFO/Specific Batch)
+    // For now, let's assume a simple case: find batch by name if provided, else error.
+    let remainingToDecrement = quantityUsed;
+    let actualBatchName = batchName; // Will be determined if not provided
+
+    if (batchName) {
+      const batchIndex = stockDoc.stocks.findIndex(
+        (b) => b.batchName === batchName && b.currentQuantityInStrips > 0
+      );
+      if (batchIndex === -1) {
+        throw new ApiError(
+          400,
+          `Batch ${batchName} not found or has no stock.`
+        );
+      }
+      if (
+        stockDoc.stocks[batchIndex].currentQuantityInStrips <
+        remainingToDecrement
+      ) {
+        throw new ApiError(
+          400,
+          `Insufficient stock in batch ${batchName}. Available: ${stockDoc.stocks[batchIndex].currentQuantityInStrips}`
+        );
+      }
+      stockDoc.stocks[batchIndex].currentQuantityInStrips -=
+        remainingToDecrement;
+      remainingToDecrement = 0;
+    } else {
+      // TODO: Implement FIFO or FEFO logic here if batchName is not provided
+      // Sort batches (e.g., by receivedDate for FIFO)
+      // Iterate through sorted batches, decrementing stock until quantityUsed is met
+      // Update actualBatchName if needed for logging
+      throw new ApiError(
+        400,
+        "Batch name is required for logging usage (FIFO/FEFO not implemented yet)."
+      );
+    }
+
+    if (remainingToDecrement > 0) {
+      // This should ideally be handled by the FIFO/FEFO loop
+      throw new ApiError(
+        400,
+        "Insufficient total stock available for this medicine."
+      );
+    }
+
+    // 4. Save the updated stock document
+    await stockDoc.save({ session });
+
+    // 5. Create the usage log entry
+    await InstitutionUsageLog.create(
+      [
+        {
+          institutionId,
+          medicineId,
+          batchName: actualBatchName, // Log the actual batch used
+          quantityUsed,
+          loggedByUserId: req.user._id, // Log who performed the action
+          notes,
+        },
+      ],
+      { session }
+    );
+
+    // 6. Commit transaction
+    await session.commitTransaction();
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, stockDoc, "Stock usage logged successfully."));
+  } catch (error) {
+    await session.abortTransaction();
+    throw new ApiError(
+      error.statusCode || 500,
+      error.message || "Failed to log stock usage"
+    );
+  } finally {
+    session.endSession();
+  }
+});
+
 export {
   addManualStock,
   getOwnStock,
@@ -287,4 +413,5 @@ export {
   getStockById,
   updateStockDetails,
   deleteStock,
+  logUsage,
 };

@@ -16,11 +16,7 @@ const router = Router();
 // Warehouse Routes
 router
   .route("/")
-  .post(
-    verifyJWTAndAuthorize([USER_TYPES.WAREHOUSE]),
-
-    addStock
-  )
+  .post(verifyJWTAndAuthorize([USER_TYPES.WAREHOUSE]), addStock)
   .get(verifyJWTAndAuthorize([USER_TYPES.WAREHOUSE]), getOwnStock);
 
 router

@@ -31,7 +31,7 @@ const LogisticsSchema = new mongoose.Schema(
           {
             batchNumber: { type: String, required: true }, // BATCH12345
             expiryDate: { type: Date, required: true }, // 2026-05-01
-            quantity: { type: Number, required: true }, // 5000 (Tablets/Bottles)
+            quantity: { type: Number, required: true }, // Quantity in Strips shipped from this batch
             packetSize: {
               strips: { type: Number },
               tabletsPerStrip: { type: Number },

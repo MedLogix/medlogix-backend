@@ -6,6 +6,7 @@ import {
   getStockById,
   updateStockDetails,
   deleteStock,
+  logUsage,
 } from "../controllers/institutionStock.controller.js";
 import { verifyJWTAndAuthorize } from "../middlewares/auth.middleware.js";
 import { USER_TYPES } from "../utils/constants.js";
@@ -16,6 +17,10 @@ router
   .route("/")
   .post(verifyJWTAndAuthorize([USER_TYPES.INSTITUTION]), addManualStock)
   .get(verifyJWTAndAuthorize([USER_TYPES.INSTITUTION]), getOwnStock);
+
+router
+  .route("/log-usage")
+  .post(verifyJWTAndAuthorize([USER_TYPES.INSTITUTION]), logUsage);
 
 router
   .route("/:stockId")

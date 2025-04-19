@@ -46,11 +46,9 @@ const requirementSchema = new mongoose.Schema(
       type: String,
       enum: [
         "Pending", // Initial state
-        "Partially Approved", // Some items approved, some pending/rejected
-        "Fully Approved", // All items approved (or rejected, none pending)
+        "Approved", // Some items approved, some pending/rejected
         "Rejected", // All items rejected
-        "Shipped", // Fully shipped
-        "Partially Shipped", // Partially shipped
+        "Shipped", //  Shipped
         "Delivered", // Shipment marked delivered by warehouse
         "Received", // Shipment marked received by institution
       ],

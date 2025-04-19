@@ -1,4 +1,5 @@
 import { WarehouseStock } from "../models/warehouseStock.model.js";
+import { WarehouseReceiptLog } from "../models/warehouseReceiptLog.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { USER_TYPES } from "../utils/constants.js";
@@ -9,48 +10,120 @@ import mongoose from "mongoose";
 // @route   POST /api/warehouse-stock
 // @access  Private (Warehouse)
 const addStock = asyncHandler(async (req, res) => {
-  const { medicineId, stocks: newBatches } = req.body;
+  const {
+    medicineId,
+    batchName,
+    quantity,
+    mfgDate,
+    expiryDate,
+    packetSize,
+    purchasePrice,
+    sellingPrice,
+    mrp,
+    receivedDate,
+  } = req.body;
+
   const warehouseId = req.user._id;
 
   if (!mongoose.isValidObjectId(medicineId)) {
     throw new ApiError(400, "Invalid Medicine ID format");
   }
-  if (!Array.isArray(newBatches) || newBatches.length === 0) {
-    throw new ApiError(400, "Stocks array (new batches) is required");
+  if (
+    !batchName ||
+    !quantity ||
+    !expiryDate ||
+    !purchasePrice ||
+    !sellingPrice ||
+    !mrp ||
+    !receivedDate
+  ) {
+    throw new ApiError(400, "Missing required stock fields.");
+  }
+  if (quantity <= 0) {
+    throw new ApiError(400, "Quantity must be positive.");
   }
 
-  // TODO: Add detailed validation for each batch object in newBatches array
-  // Check required fields: batchName, quantity, expiryDate, purchasePrice, sellingPrice, mrp, receivedDate
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  let warehouseStock = await WarehouseStock.findOne({
-    warehouseId,
-    medicineId,
-    isDeleted: false,
-  });
-
-  if (!warehouseStock) {
-    // If no stock record exists for this medicine in this warehouse, create it
-    warehouseStock = await WarehouseStock.create({
+  try {
+    let warehouseStock = await WarehouseStock.findOne({
       warehouseId,
       medicineId,
-      stocks: newBatches,
-    });
-    if (!warehouseStock) {
-      throw new ApiError(500, "Failed to create new warehouse stock record");
-    }
-  } else {
-    // If record exists, add the new batches to the existing stocks array
-    // Optional: Check for duplicate batch names before adding?
-    warehouseStock.stocks.push(...newBatches);
-    warehouseStock.markModified("stocks"); // Necessary when modifying nested arrays
-    await warehouseStock.save();
-  }
+      isDeleted: false,
+    }).session(session);
 
-  return res
-    .status(201)
-    .json(
-      new ApiResponse(201, warehouseStock, "Stock added/updated successfully")
+    const newStockEntry = {
+      batchName,
+      quantity,
+      reservedQuantity: 0,
+      mfgDate,
+      expiryDate,
+      packetSize,
+      purchasePrice,
+      sellingPrice,
+      mrp,
+      receivedDate,
+      createdAt: new Date(),
+    };
+
+    if (!warehouseStock) {
+      warehouseStock = await WarehouseStock.create(
+        [
+          {
+            warehouseId,
+            medicineId,
+            stocks: [newStockEntry],
+          },
+        ],
+        { session }
+      );
+      warehouseStock = warehouseStock[0];
+    } else {
+      const existingBatchIndex = warehouseStock.stocks.findIndex(
+        (s) => s.batchName === batchName
+      );
+      if (existingBatchIndex !== -1) {
+        warehouseStock.stocks[existingBatchIndex].quantity += quantity;
+      } else {
+        warehouseStock.stocks.push(newStockEntry);
+      }
+      await warehouseStock.save({ session });
+    }
+
+    await WarehouseReceiptLog.create(
+      [
+        {
+          warehouseId,
+          medicineId,
+          batchName,
+          quantityAdded: quantity,
+          mfgDate,
+          expiryDate,
+          purchasePrice,
+          sellingPrice,
+          mrp,
+          receivedDate,
+          addedByUserId: req.user._id,
+        },
+      ],
+      { session }
     );
+
+    await session.commitTransaction();
+
+    return res
+      .status(201)
+      .json(new ApiResponse(201, warehouseStock, "Stock added successfully."));
+  } catch (error) {
+    await session.abortTransaction();
+    throw new ApiError(
+      error.statusCode || 500,
+      error.message || "Failed to add warehouse stock"
+    );
+  } finally {
+    session.endSession();
+  }
 });
 
 // @desc    Get own warehouse stock

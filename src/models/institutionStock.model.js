@@ -28,13 +28,8 @@ const InstitutionStockSchema = new mongoose.Schema(
           strips: { type: Number },
           tabletsPerStrip: { type: Number },
         },
-        quantity: {
-          boxes: { type: Number, required: true },
-          extra: { type: Number, default: 0 }, // extra -> strips / qty
-          tablets: { type: Number, default: 0 },
-          totalStrips: { type: Number, required: true },
-        },
-        quantityReceived: { type: Number, required: true }, // totalStrips received
+        currentQuantityInStrips: { type: Number, required: true }, // Current remaining strips from this batch
+        quantityReceived: { type: Number, required: true }, // totalStrips received initially in this batch
 
         purchasePrice: { type: Number, required: true },
         mrp: { type: Number, required: true },
