@@ -1,11 +1,11 @@
 import { Router } from "express";
 import {
-  createRequirement,
-  getOwnRequirements,
-  getRequirementsForWarehouse,
-  getAllRequirementsAdmin,
-  getRequirementById,
   approveRequirementItems,
+  createRequirement,
+  getAllRequirementsAdmin,
+  getOwnRequirements,
+  getRequirementById,
+  getRequirementStockAvailability,
 } from "../controllers/requirement.controller.js";
 import { verifyJWTAndAuthorize } from "../middlewares/auth.middleware.js";
 import { USER_TYPES } from "../utils/constants.js"; // Assuming constants are defined here
@@ -20,19 +20,18 @@ router
     getOwnRequirements
   );
 
-// Warehouse Routes
-router
-  .route("/warehouse")
-  .get(
-    verifyJWTAndAuthorize([USER_TYPES.WAREHOUSE]),
-    getRequirementsForWarehouse
-  );
-
 router
   .route("/:requirementId/approve")
   .patch(
     verifyJWTAndAuthorize([USER_TYPES.WAREHOUSE]),
     approveRequirementItems
+  );
+
+router
+  .route("/:requirementId/stock-availability")
+  .get(
+    verifyJWTAndAuthorize([USER_TYPES.WAREHOUSE]),
+    getRequirementStockAvailability
   );
 
 // Admin Routes

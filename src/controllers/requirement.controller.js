@@ -8,6 +8,16 @@ import { Warehouse } from "../models/warehouse.model.js";
 import { USER_TYPES } from "../utils/constants.js";
 import { Medicine } from "../models/medicine.model.js";
 
+// Helper function to calculate total available stock (non-reserved)
+const calculateAvailableStock = (warehouseStock) => {
+  if (!warehouseStock || !warehouseStock.stocks) {
+    return 0;
+  }
+  return warehouseStock.stocks.reduce((total, batch) => {
+    return total + (batch.quantity - batch.reservedQuantity);
+  }, 0);
+};
+
 // @desc    Create a new stock requirement
 // @route   POST /api/requirements
 // @access  Private (Institution)
@@ -44,6 +54,8 @@ const createRequirement = asyncHandler(async (req, res) => {
     processedMedicines.push({
       medicineId: med.medicineId,
       requestedQuantity: parseInt(med.requestedQuantity),
+      approvedQuantity: 0, // Initialize approved quantity
+      status: "Pending", // Initialize status
     });
   }
 
@@ -88,9 +100,9 @@ const createRequirement = asyncHandler(async (req, res) => {
     );
 });
 
-// @desc    Get requirements created by the institution
+// @desc    Get requirements created by the institution or assigned to warehouse
 // @route   GET /api/requirements
-// @access  Private (Institution)
+// @access  Private (Institution, Warehouse)
 const getOwnRequirements = asyncHandler(async (req, res) => {
   const {
     page = 1,
@@ -105,6 +117,7 @@ const getOwnRequirements = asyncHandler(async (req, res) => {
     sort: { [sortBy]: sortOrder === "desc" ? -1 : 1 },
     lean: true,
     populate: [
+      // Conditional population based on user type might be needed if fields differ
       { path: "warehouseId", select: "name email contactPerson" }, // Populate warehouse details
       { path: "medicines.medicineId", select: "name manufacturer category" }, // Populate medicine details within the array
       { path: "logisticId", select: "shipmentId status receivedStatus" }, // Populate basic logistic info if available
@@ -113,7 +126,6 @@ const getOwnRequirements = asyncHandler(async (req, res) => {
   };
 
   const query = { isDeleted: false };
-
   const userType = req.user.userType;
 
   if (userType === USER_TYPES.WAREHOUSE) {
@@ -133,49 +145,6 @@ const getOwnRequirements = asyncHandler(async (req, res) => {
     .status(200)
     .json(
       new ApiResponse(200, requirements, "Requirements fetched successfully")
-    );
-});
-
-// @desc    Get requirements directed to the warehouse
-// @route   GET /api/requirements/warehouse
-// @access  Private (Warehouse)
-const getRequirementsForWarehouse = asyncHandler(async (req, res) => {
-  const warehouseId = req.user._id;
-  const {
-    page = 1,
-    limit = 10,
-    sortBy = "createdAt",
-    sortOrder = "desc",
-  } = req.query;
-
-  const options = {
-    page: parseInt(page, 10),
-    limit: parseInt(limit, 10),
-    sort: { [sortBy]: sortOrder === "desc" ? -1 : 1 },
-    lean: true,
-    populate: [
-      { path: "institutionId", select: "name email contactPerson location" }, // Populate institution details
-      { path: "medicines.medicineId", select: "name manufacturer category" }, // Populate medicine details within the array
-      { path: "logisticId", select: "shipmentId status receivedStatus" }, // Populate basic logistic info if available
-    ],
-  };
-
-  const query = { warehouseId, isDeleted: false };
-
-  const requirements = await Requirement.paginate(query, options);
-
-  if (!requirements) {
-    throw new ApiError(404, "Error fetching requirements for warehouse");
-  }
-
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        requirements,
-        "Requirements for warehouse fetched successfully"
-      )
     );
 });
 
@@ -224,6 +193,18 @@ const getAllRequirementsAdmin = asyncHandler(async (req, res) => {
 
   if (status) {
     // Validate status against the enum values if necessary
+    const validStatuses = [
+      "Pending",
+      "Fully Approved",
+      "Partially Approved", // Keep if partial logic exists elsewhere
+      "Rejected",
+      "Shipped",
+      "Delivered",
+      "Received",
+    ];
+    if (!validStatuses.includes(status)) {
+      throw new ApiError(400, `Invalid status filter: ${status}`);
+    }
     query.overallStatus = status;
   }
 
@@ -295,59 +276,83 @@ const getRequirementById = asyncHandler(async (req, res) => {
     );
 });
 
-// Helper function to calculate overall status
-const calculateOverallStatus = (medicines) => {
-  const totalItems = medicines.length;
-  let approvedCount = 0;
-  let rejectedCount = 0;
-  let pendingCount = 0;
-
-  medicines.forEach((med) => {
-    if (med.status === "Approved") {
-      approvedCount++;
-    } else if (med.status === "Rejected") {
-      rejectedCount++;
-    } else {
-      pendingCount++;
-    }
-  });
-
-  if (pendingCount > 0) {
-    return approvedCount > 0 ? "Partially Approved" : "Pending";
-  }
-  if (approvedCount === 0 && rejectedCount > 0) {
-    return "Rejected";
-  }
-  if (approvedCount > 0 && rejectedCount > 0) {
-    return "Partially Approved";
-  }
-  if (approvedCount === totalItems) {
-    return "Fully Approved";
-  }
-  // This case might be unreachable if logic is correct, but default to pending
-  return "Pending";
-};
-
-// @desc    Approve or reject items within a requirement
-// @route   PATCH /api/requirements/:requirementId/approve
+// @desc    Check stock availability for a specific requirement
+// @route   GET /api/requirements/:requirementId/stock-availability
 // @access  Private (Warehouse)
-const approveRequirementItems = asyncHandler(async (req, res) => {
+const getRequirementStockAvailability = asyncHandler(async (req, res) => {
   const { requirementId } = req.params;
-  const { medicines: approvalUpdates } = req.body; // [{ medicineId, approvedQuantity, status ('Approved'/'Rejected') }]
   const warehouseId = req.user._id;
 
   if (!mongoose.isValidObjectId(requirementId)) {
     throw new ApiError(400, "Invalid Requirement ID format");
   }
-  if (!Array.isArray(approvalUpdates) || approvalUpdates.length === 0) {
-    throw new ApiError(400, "Approval updates array is required");
+
+  const requirement = await Requirement.findOne({
+    _id: requirementId,
+    warehouseId: warehouseId, // Ensure it belongs to the requesting warehouse
+    isDeleted: false,
+  }).populate("medicines.medicineId", "name"); // Populate medicine names
+
+  if (!requirement) {
+    throw new ApiError(
+      404,
+      "Requirement not found or does not belong to this warehouse"
+    );
+  }
+
+  let canFulfillEntireRequirement = true;
+  const detailedStockInfo = [];
+
+  for (const med of requirement.medicines) {
+    const warehouseStock = await WarehouseStock.findOne({
+      warehouseId: warehouseId,
+      medicineId: med.medicineId._id,
+    });
+
+    const availableStock = calculateAvailableStock(warehouseStock);
+    const isSufficient = availableStock >= med.requestedQuantity;
+
+    if (!isSufficient) {
+      canFulfillEntireRequirement = false;
+    }
+
+    detailedStockInfo.push({
+      medicineId: med.medicineId._id,
+      name: med.medicineId.name, // Get name from populated field
+      requestedQuantity: med.requestedQuantity,
+      availableStock: availableStock,
+      isSufficient: isSufficient,
+    });
+  }
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        canFulfillEntireRequirement,
+        detailedStockInfo,
+      },
+      "Stock availability checked successfully"
+    )
+  );
+});
+
+// @desc    Approve ALL items within a requirement (All or Nothing)
+// @route   PATCH /api/requirements/:requirementId/approve
+// @access  Private (Warehouse)
+const approveRequirementItems = asyncHandler(async (req, res) => {
+  const { requirementId } = req.params;
+  const warehouseId = req.user._id;
+
+  if (!mongoose.isValidObjectId(requirementId)) {
+    throw new ApiError(400, "Invalid Requirement ID format");
   }
 
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    // 4. Find the Requirement and lock it for the transaction
+    // 1. Find the Requirement and lock it for the transaction
     const requirement =
       await Requirement.findById(requirementId).session(session);
 
@@ -364,179 +369,116 @@ const approveRequirementItems = asyncHandler(async (req, res) => {
       );
     }
 
-    // 5. Check if requirement status allows approval
-    const allowedStatuses = ["Pending", "Partially Approved"];
-    if (!allowedStatuses.includes(requirement.overallStatus)) {
+    // 2. Check if requirement status allows approval ('Pending' only for this logic)
+    if (requirement.overallStatus !== "Pending") {
       throw new ApiError(
         400,
-        `Cannot modify requirement with status: ${requirement.overallStatus}`
+        `Requirement cannot be approved. Current status: ${requirement.overallStatus}`
       );
     }
+    // This check might be redundant if status is strictly 'Pending', but good practice
     if (requirement.logisticId) {
       throw new ApiError(
         400,
-        "Cannot modify requirement items after shipment has been created"
+        "Cannot approve requirement after shipment has been created"
       );
     }
 
-    // Map for efficient lookup of original requested quantities and current status
-    const originalMedicineMap = new Map();
-    requirement.medicines.forEach((med) => {
-      originalMedicineMap.set(med.medicineId.toString(), {
-        requestedQuantity: med.requestedQuantity,
-        currentApprovedQuantity: med.approvedQuantity,
-        currentStatus: med.status,
-      });
-    });
-
-    // Process each update
-    for (const update of approvalUpdates) {
-      if (
-        !update.medicineId ||
-        !mongoose.isValidObjectId(update.medicineId) ||
-        !update.status ||
-        !["Approved", "Rejected"].includes(update.status) ||
-        (update.status === "Approved" &&
-          (isNaN(parseInt(update.approvedQuantity)) ||
-            parseInt(update.approvedQuantity) < 0)) ||
-        (update.status === "Rejected" &&
-          update.approvedQuantity !== undefined &&
-          parseInt(update.approvedQuantity) !== 0)
-      ) {
-        throw new ApiError(
-          400,
-          `Invalid update format for medicine ${update.medicineId || "unknown"}`
-        );
-      }
-
-      const medIdString = update.medicineId.toString();
-      const originalMed = originalMedicineMap.get(medIdString);
-
-      if (!originalMed) {
-        throw new ApiError(
-          400,
-          `Medicine ${medIdString} not found in the original requirement`
-        );
-      }
-
-      const approvedQuantity =
-        update.status === "Approved" ? parseInt(update.approvedQuantity) : 0;
-
-      // b. Validate approvedQuantity <= requestedQuantity
-      if (approvedQuantity > originalMed.requestedQuantity) {
-        throw new ApiError(
-          400,
-          `Approved quantity (${approvedQuantity}) cannot exceed requested quantity (${originalMed.requestedQuantity}) for medicine ${medIdString}`
-        );
-      }
-
-      // Find the medicine subdocument within the requirement
-      const reqMed = requirement.medicines.find(
-        (m) => m.medicineId.toString() === medIdString
-      );
-      if (!reqMed) continue; // Should exist based on map check, but safety first
-
-      const quantityChange =
-        approvedQuantity -
-        (reqMed.status === "Approved" ? reqMed.approvedQuantity : 0);
-
-      // Update requirement medicine status
-      reqMed.status = update.status;
-      reqMed.approvedQuantity = approvedQuantity;
-
-      // d/e. Adjust reserved stock in WarehouseStock
+    // 3. Upfront Stock Availability Check (All or Nothing)
+    const stockChecks = []; // To store stock documents for later reservation
+    for (const med of requirement.medicines) {
       const warehouseStock = await WarehouseStock.findOne({
         warehouseId: warehouseId,
-        medicineId: update.medicineId,
-      }).session(session);
+        medicineId: med.medicineId,
+      }).session(session); // Ensure read is part of the transaction
 
-      if (!warehouseStock && quantityChange > 0) {
+      const availableStock = calculateAvailableStock(warehouseStock);
+
+      if (availableStock < med.requestedQuantity) {
         throw new ApiError(
-          404,
-          `Warehouse stock not found for medicine ${medIdString} to reserve quantity.`
+          400,
+          `Insufficient stock for medicine ID ${med.medicineId}. Required: ${med.requestedQuantity}, Available: ${availableStock}`
         );
       }
-      if (!warehouseStock) continue; // No stock to adjust if rejecting/reducing
-
-      if (quantityChange > 0) {
-        // Need to reserve more stock
-        let remainingToReserve = quantityChange;
-        let actuallyReserved = 0;
-        // Sort batches by expiry or received date (FIFO)
-        warehouseStock.stocks.sort((a, b) => a.createdAt - b.createdAt);
-
-        for (const batch of warehouseStock.stocks) {
-          const availableInBatch = batch.quantity - batch.reservedQuantity;
-          if (availableInBatch > 0 && remainingToReserve > 0) {
-            const reserveFromBatch = Math.min(
-              remainingToReserve,
-              availableInBatch
-            );
-            batch.reservedQuantity += reserveFromBatch;
-            remainingToReserve -= reserveFromBatch;
-            actuallyReserved += reserveFromBatch;
-          }
-          if (remainingToReserve <= 0) break;
-        }
-        if (remainingToReserve > 0) {
-          throw new ApiError(
-            400,
-            `Insufficient available stock for medicine ${medIdString}. Required: ${quantityChange}, Available: ${actuallyReserved}`
-          );
-        }
-      } else if (quantityChange < 0) {
-        // Need to release reserved stock
-        let remainingToRelease = Math.abs(quantityChange);
-        // Release from batches, potentially reverse order of reservation (LIFO for release? Or same FIFO?)
-        // Using FIFO for simplicity here
-        warehouseStock.stocks.sort((a, b) => a.createdAt - b.createdAt);
-
-        for (const batch of warehouseStock.stocks) {
-          if (batch.reservedQuantity > 0 && remainingToRelease > 0) {
-            const releaseFromBatch = Math.min(
-              remainingToRelease,
-              batch.reservedQuantity
-            );
-            batch.reservedQuantity -= releaseFromBatch;
-            remainingToRelease -= releaseFromBatch;
-          }
-          if (remainingToRelease <= 0) break;
-        }
-        // Log warning if couldn't release expected amount (data inconsistency?)
-        if (remainingToRelease > 0) {
-          console.warn(
-            `Could not release full reserved quantity for medicine ${medIdString}. Discrepancy: ${remainingToRelease}`
-          );
-        }
-      }
-      // Mark stocks array as modified if changes were made
-      if (quantityChange !== 0) {
-        warehouseStock.markModified("stocks");
-        await warehouseStock.save({ session });
-      }
+      // Store the fetched stock document to avoid fetching again
+      stockChecks.push({
+        medicineId: med.medicineId.toString(),
+        requestedQuantity: med.requestedQuantity,
+        stockDoc: warehouseStock,
+      });
     }
 
-    // 8. Recalculate overallStatus
-    requirement.overallStatus = calculateOverallStatus(requirement.medicines);
+    // 4. FEFO Reservation
+    for (const check of stockChecks) {
+      const { medicineId, requestedQuantity, stockDoc } = check;
 
-    // 9. Save the updated Requirement
-    await requirement.save({ session });
+      if (!stockDoc) {
+        // This case should theoretically be caught by the availability check,
+        // but handle defensively. It implies requestedQuantity > 0 but stockDoc is null.
+        throw new ApiError(
+          500,
+          `Internal Error: Stock document not found for ${medicineId} during reservation phase.`
+        );
+      }
 
-    // 10. Commit transaction
+      // Sort batches by expiry date (ascending - oldest first)
+      stockDoc.stocks.sort(
+        (a, b) =>
+          (a.expiryDate ? new Date(a.expiryDate) : new Date(0)) - // Handle potentially missing expiry dates
+          (b.expiryDate ? new Date(b.expiryDate) : new Date(0))
+      );
+
+      let remainingToReserve = requestedQuantity;
+      for (const batch of stockDoc.stocks) {
+        if (remainingToReserve <= 0) break;
+
+        const availableInBatch = batch.quantity - batch.reservedQuantity;
+        if (availableInBatch > 0) {
+          const reserveFromBatch = Math.min(
+            remainingToReserve,
+            availableInBatch
+          );
+          batch.reservedQuantity += reserveFromBatch;
+          remainingToReserve -= reserveFromBatch;
+        }
+      }
+
+      // Double-check if reservation was fully successful (should always be if initial check passed)
+      if (remainingToReserve > 0) {
+        throw new ApiError(
+          500, // Internal Server Error because the upfront check should have prevented this
+          `Internal Error: Could not reserve full quantity for ${medicineId} despite passing initial check.`
+        );
+      }
+
+      // Mark stocks array as modified and save
+      stockDoc.markModified("stocks");
+      await stockDoc.save({ session });
+    }
+
+    // 5. Update Requirement Status
+    requirement.overallStatus = "Approved";
+    requirement.medicines.forEach((med) => {
+      med.status = "Approved";
+      med.approvedQuantity = med.requestedQuantity; // Approve the full requested amount
+    });
+
+    // 6. Save the updated Requirement
+    const updatedRequirement = await requirement.save({ session });
+
+    // 7. Commit transaction
     await session.commitTransaction();
 
-    // 11. Return updated requirement
-    return res
-      .status(200)
-      .json(
-        new ApiResponse(
-          200,
-          requirement,
-          "Requirement items updated successfully"
-        )
-      );
+    // 8. Return updated requirement
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        updatedRequirement, // Return the saved requirement
+        "Requirement fully approved successfully"
+      )
+    );
   } catch (error) {
-    // Rollback transaction
+    // Rollback transaction on any error
     await session.abortTransaction();
     throw error; // Re-throw the error to be handled by global error handler
   } finally {
@@ -548,8 +490,8 @@ const approveRequirementItems = asyncHandler(async (req, res) => {
 export {
   createRequirement,
   getOwnRequirements,
-  getRequirementsForWarehouse,
   getAllRequirementsAdmin,
   getRequirementById,
+  getRequirementStockAvailability, // Export the new function
   approveRequirementItems,
 };
