@@ -7,6 +7,12 @@ import mongoose from "mongoose";
 import { Warehouse } from "../models/warehouse.model.js";
 import { USER_TYPES } from "../utils/constants.js";
 import { Medicine } from "../models/medicine.model.js";
+import {
+  sendEmail,
+  newRequirementSubmittedMailgenContent,
+  requirementStatusUpdateMailgenContent,
+} from "../utils/mail.js";
+import { Institution } from "../models/institution.model.js";
 
 // Helper function to calculate total available stock (non-reserved)
 const calculateAvailableStock = (warehouseStock) => {
@@ -80,6 +86,11 @@ const createRequirement = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Target warehouse not found");
   }
 
+  const institutionExists = await Institution.findById(institutionId);
+  if (!institutionExists || institutionExists.isDeleted) {
+    throw new ApiError(404, "Institution not found");
+  }
+
   // 3. Create new Requirement document
   const newRequirement = await Requirement.create({
     institutionId,
@@ -92,7 +103,29 @@ const createRequirement = asyncHandler(async (req, res) => {
     throw new ApiError(500, "Failed to create requirement");
   }
 
-  // 4. Return success response
+  try {
+    if (warehouseExists?.email) {
+      const requirementUrl = `${process.env.FRONTEND_URL}/requirements/${newRequirement._id}`;
+
+      const mailgenContent = newRequirementSubmittedMailgenContent({
+        recipientName: warehouseExists.name || "Warehouse",
+        institutionName: institutionExists.name || "Institution",
+        requirementId: newRequirement._id.toString(),
+        viewRequirementUrl: requirementUrl,
+      });
+
+      await sendEmail({
+        email: warehouseExists.email,
+        subject: `New Requirement Submitted: ${newRequirement._id}`,
+        mailgenContent,
+      });
+    }
+  } catch (error) {
+    console.error("Failed to send requirement notification email:", error);
+    // Continue with the API response even if email fails
+  }
+
+  // 5. Return success response
   return res
     .status(201)
     .json(
@@ -468,6 +501,34 @@ const approveRequirementItems = asyncHandler(async (req, res) => {
 
     // 7. Commit transaction
     await session.commitTransaction();
+
+    try {
+      const [warehouse, institution] = await Promise.all([
+        Warehouse.findById(updatedRequirement.warehouseId),
+        Institution.findById(updatedRequirement.institutionId),
+      ]);
+
+      if (institution?.email) {
+        const viewRequirementUrl = `${process.env.FRONTEND_URL}/requirements/${requirementId}`;
+        // 8. Send email notification to warehouse
+        const mailgenContent = requirementStatusUpdateMailgenContent({
+          recipientName: institution.name || "Institution",
+          requirementId,
+          newStatus: "Approved",
+          warehouseName: warehouse?.name || "Warehouse",
+          viewRequirementUrl,
+        });
+
+        await sendEmail({
+          email: institution.email,
+          subject: `Requirement Approved: ${requirementId}`,
+          mailgenContent,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to send approval notification email:", error);
+      // Continue with the API response even if email fails
+    }
 
     // 8. Return updated requirement
     return res.status(200).json(

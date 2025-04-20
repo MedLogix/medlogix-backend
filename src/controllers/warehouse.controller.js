@@ -2,6 +2,7 @@ import { Warehouse } from "../models/warehouse.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { USER_TYPES } from "../utils/constants.js";
+import { registrationStatusMailgenContent, sendEmail } from "../utils/mail.js";
 
 const getAllWarehouses = asyncHandler(async (req, res) => {
   const {
@@ -77,6 +78,26 @@ const approveWarehouse = asyncHandler(async (req, res) => {
     { new: true }
   );
 
+  try {
+    if (warehouse?.email) {
+      const mailgenContent = registrationStatusMailgenContent({
+        recipientName: warehouse.name || "Warehouse",
+        isApproved: true,
+        rejectionReason: "",
+        loginUrl: `${process.env.FRONTEND_URL}/login`,
+      });
+
+      await sendEmail({
+        email: warehouse.email,
+        subject: `Warehouse Registration Approved`,
+        mailgenContent,
+      });
+    }
+  } catch (error) {
+    console.error("Failed to send approval email:", error);
+    // Continue with the API response even if email fails
+  }
+
   return res
     .status(200)
     .json(new ApiResponse(200, warehouse, "Warehouse approved successfully"));
@@ -93,6 +114,26 @@ const rejectWarehouse = asyncHandler(async (req, res) => {
     },
     { new: true }
   );
+
+  try {
+    if (warehouse?.email) {
+      const mailgenContent = registrationStatusMailgenContent({
+        recipientName: warehouse.name || "Warehouse",
+        isApproved: false,
+        rejectionReason: reason,
+        loginUrl: `${process.env.FRONTEND_URL}/login`,
+      });
+
+      await sendEmail({
+        email: warehouse.email,
+        subject: `Warehouse Registration Rejected`,
+        mailgenContent,
+      });
+    }
+  } catch (error) {
+    console.error("Failed to send rejection email:", error);
+    // Continue with the API response even if email fails
+  }
 
   return res
     .status(200)

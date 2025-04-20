@@ -11,8 +11,8 @@ const sendEmail = async (options) => {
   const mailGenerator = new Mailgen({
     theme: "default",
     product: {
-      name: "MockVerse",
-      link: "https://mockverse.app",
+      name: "Medlogix",
+      link: "https://medlogix.com",
     },
   });
 
@@ -107,8 +107,204 @@ const forgotPasswordMailgenContent = (username, passwordResetUrl) => {
   };
 };
 
+const newRequirementSubmittedMailgenContent = ({
+  recipientName,
+  institutionName,
+  requirementId,
+  viewRequirementUrl,
+}) => {
+  return {
+    body: {
+      name: recipientName,
+      intro: `A new requirement (${requirementId}) has been submitted by ${institutionName} and requires your attention.`,
+      action: {
+        instructions:
+          "Please review the new requirement details by clicking the button below:",
+        button: {
+          color: "#3d61ff",
+          text: "View Requirement",
+          link: viewRequirementUrl,
+        },
+      },
+      outro: "Please process this requirement at your earliest convenience.",
+    },
+  };
+};
+
+const requirementStatusUpdateMailgenContent = ({
+  recipientName,
+  requirementId,
+  newStatus,
+  warehouseName,
+  viewRequirementUrl,
+}) => {
+  let intro = `The status of your requirement (${requirementId}) has been updated by ${warehouseName}.`;
+  let outro = "If you have any questions, please contact the warehouse.";
+
+  switch (newStatus.toLowerCase()) {
+    case "Approved":
+      intro += ` It has been fully approved.`;
+      outro = "Preparation for shipment will begin soon.";
+      break;
+    case "Rejected":
+      intro += ` Unfortunately, it has been rejected.`;
+      outro = "Please contact the warehouse for more details or clarification.";
+      break;
+    default:
+      intro += ` The new status is: ${newStatus}.`;
+  }
+
+  return {
+    body: {
+      name: recipientName,
+      intro: intro,
+      action: {
+        instructions:
+          "You can view the details of your requirement by clicking the button below:",
+        button: {
+          color: "#3d61ff",
+          text: "View Requirement Details",
+          link: viewRequirementUrl,
+        },
+      },
+      outro: outro,
+    },
+  };
+};
+
+/**
+ * Generates the email content for a shipment dispatch notification.
+ * @param {string} recipientName Name of the institution user receiving the mail.
+ * @param {string} shipmentId User-friendly ID or reference for the shipment.
+ * @param {string} requirementId The related requirement ID.
+ * @param {string} warehouseName The name of the dispatching warehouse.
+ * @param {string} viewShipmentUrl Direct link for the recipient to track the shipment.
+ * @returns {Mailgen.Content}
+ */
+const shipmentDispatchedMailgenContent = ({
+  recipientName,
+  shipmentId,
+  requirementId,
+  warehouseName,
+  viewShipmentUrl,
+}) => {
+  return {
+    body: {
+      name: recipientName,
+      intro: `Good news! Your order (Requirement: ${requirementId}) has been dispatched from ${warehouseName} under Shipment ID: ${shipmentId}.`,
+      action: {
+        instructions:
+          "You can view the shipment details and estimated delivery time (if available) using the button below:",
+        button: {
+          color: "#22BC66",
+          text: "Track Shipment",
+          link: viewShipmentUrl,
+        },
+      },
+      outro: "Please be ready to receive the shipment upon arrival.",
+    },
+  };
+};
+
+const shipmentDeliveredMailgenContent = ({
+  recipientName,
+  shipmentId,
+  warehouseName,
+  confirmReceiptUrl,
+}) => {
+  return {
+    body: {
+      name: recipientName,
+      intro: `Your shipment (${shipmentId}) from ${warehouseName} has been marked as delivered by the logistics team.`,
+      action: {
+        instructions:
+          "Please confirm the receipt of the items after verifying the delivery contents:",
+        button: {
+          color: "#3d61ff",
+          text: "Confirm Receipt",
+          link: confirmReceiptUrl,
+        },
+      },
+      outro:
+        "If there are any issues with the delivery, please contact the warehouse immediately.",
+    },
+  };
+};
+
+const shipmentReceivedMailgenContent = ({
+  recipientName,
+  shipmentId,
+  institutionName,
+  viewShipmentUrl,
+}) => {
+  return {
+    body: {
+      name: recipientName,
+      intro: `Shipment ${shipmentId} has been successfully received and confirmed by ${institutionName}.`,
+      action: {
+        instructions:
+          "You can view the final details of the completed shipment:",
+        button: {
+          color: "#22BC66",
+          text: "View Shipment Details",
+          link: viewShipmentUrl,
+        },
+      },
+      outro:
+        "This shipment process is now complete. No further action is required.",
+    },
+  };
+};
+
+const registrationStatusMailgenContent = ({
+  recipientName,
+  isApproved,
+  rejectionReason = "",
+  loginUrl = "",
+}) => {
+  let intro;
+  let action = null; // No action button by default
+
+  if (isApproved) {
+    intro =
+      "Congratulations! Your registration request for Medlogix has been approved by the administrator.";
+    action = {
+      instructions:
+        "You can now log in to your account using the credentials you provided:",
+      button: {
+        color: "#22BC66",
+        text: "Login to Medlogix",
+        link: loginUrl,
+      },
+    };
+  } else {
+    intro =
+      "We regret to inform you that your registration request for Medlogix has been rejected by the administrator.";
+    if (rejectionReason) {
+      intro += ` Reason provided: ${rejectionReason}`;
+    }
+  }
+
+  return {
+    body: {
+      name: recipientName,
+      intro: intro,
+      action: action, // Include action only if approved
+      outro: isApproved
+        ? "We're excited to have you on board!"
+        : "If you believe this was an error or have questions, please contact support.",
+    },
+  };
+};
+
 export {
   sendEmail,
   emailVerificationMailgenContent,
   forgotPasswordMailgenContent,
+  newRequirementSubmittedMailgenContent,
+  requirementStatusUpdateMailgenContent,
+  shipmentDispatchedMailgenContent,
+  shipmentDeliveredMailgenContent,
+  shipmentReceivedMailgenContent,
+  registrationStatusMailgenContent,
 };

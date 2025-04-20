@@ -9,7 +9,14 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { USER_TYPES } from "../utils/constants.js"; // Import USER_TYPES
-
+import { Warehouse } from "../models/warehouse.model.js";
+import { Institution } from "../models/institution.model.js";
+import {
+  sendEmail,
+  shipmentDeliveredMailgenContent,
+  shipmentDispatchedMailgenContent,
+  shipmentReceivedMailgenContent,
+} from "../utils/mail.js";
 // Helper function to generate a unique shipment ID (example)
 const generateShipmentId = async () => {
   // Basic example: Prefixed timestamp + random part. Implement a robust unique ID generator.
@@ -188,7 +195,33 @@ const createShipment = asyncHandler(async (req, res) => {
     // 9. Commit Transaction
     await session.commitTransaction();
 
-    // 10. Return the created Logistic document
+    try {
+      const [warehouse, institution] = await Promise.all([
+        Warehouse.findById(warehouseId),
+        Institution.findById(requirement.institutionId),
+      ]);
+
+      if (institution?.email) {
+        const viewRequirementUrl = `${process.env.FRONTEND_URL}/requirements/${requirementId}`;
+        const mailgenContent = shipmentDispatchedMailgenContent({
+          recipientName: institution.name || "Institution",
+          shipmentId: finalShipmentId,
+          requirementId,
+          warehouseName: warehouse?.name || "Warehouse",
+          viewShipmentUrl: viewRequirementUrl,
+        });
+
+        await sendEmail({
+          email: institution.email,
+          subject: `Shipment Dispatched: ${finalShipmentId}`,
+          mailgenContent,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to send shipment dispatch email:", error);
+      // Continue with the API response even if email fails
+    }
+
     return res
       .status(201)
       .json(new ApiResponse(201, newLogistic, "Shipment created successfully"));
@@ -440,6 +473,33 @@ const updateShipmentStatus = asyncHandler(async (req, res) => {
     });
   }
 
+  try {
+    const [warehouse, institution] = await Promise.all([
+      Warehouse.findById(warehouseId.toString()),
+      Institution.findById(logistic.institution.toString()),
+    ]);
+
+    if (institution?.email) {
+      const viewRequirementUrl = `${process.env.FRONTEND_URL}/requirements/${logistic.requirementId.toString()}`;
+
+      const mailgenContent = shipmentDeliveredMailgenContent({
+        recipientName: institution.name || "Institution",
+        shipmentId: logistic.shipmentId,
+        warehouseName: warehouse?.name || "Warehouse",
+        viewShipmentUrl: viewRequirementUrl,
+      });
+
+      await sendEmail({
+        email: institution.email,
+        subject: `Shipment Delivered: ${logistic.shipmentId}`,
+        mailgenContent,
+      });
+    }
+  } catch (error) {
+    console.error("Failed to send delivery notification email:", error);
+    // Continue with the API response even if email fails
+  }
+
   return res
     .status(200)
     .json(
@@ -579,6 +639,32 @@ const receiveShipment = asyncHandler(async (req, res) => {
 
     // 9. Commit Transaction
     await session.commitTransaction();
+
+    try {
+      const [warehouse, institution] = await Promise.all([
+        Warehouse.findById(logistic.warehouse.toString()),
+        Institution.findById(logistic.institution.toString()),
+      ]);
+
+      if (warehouse?.email) {
+        const viewRequirementUrl = `${process.env.FRONTEND_URL}/requirements/${logistic.requirementId.toString()}`;
+        const mailgenContent = shipmentReceivedMailgenContent({
+          recipientName: warehouse.name || "Warehouse",
+          shipmentId: logistic.shipmentId,
+          institutionName: institution?.name || "Institution",
+          viewShipmentUrl: viewRequirementUrl,
+        });
+
+        await sendEmail({
+          email: warehouse.email,
+          subject: `Shipment Received: ${logistic.shipmentId}`,
+          mailgenContent,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to send shipment received email:", error);
+      // Continue with the API response even if email fails
+    }
 
     // 10. Return updated logistic
     return res

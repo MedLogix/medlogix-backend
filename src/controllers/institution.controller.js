@@ -1,6 +1,7 @@
 import { Institution } from "../models/institution.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { registrationStatusMailgenContent, sendEmail } from "../utils/mail.js";
 
 const getAllInstitutions = asyncHandler(async (req, res) => {
   const {
@@ -72,6 +73,26 @@ const approveInstitution = asyncHandler(async (req, res) => {
     { new: true }
   );
 
+  try {
+    if (institution?.email) {
+      const mailgenContent = registrationStatusMailgenContent({
+        recipientName: institution.name || "Institution",
+        isApproved: true,
+        rejectionReason: "",
+        loginUrl: `${process.env.FRONTEND_URL}/login`,
+      });
+
+      await sendEmail({
+        email: institution.email,
+        subject: `Institution Registration Approved`,
+        mailgenContent,
+      });
+    }
+  } catch (error) {
+    console.error("Failed to send approval email:", error);
+    // Continue with the API response even if email fails
+  }
+
   return res
     .status(200)
     .json(
@@ -90,6 +111,26 @@ const rejectInstitution = asyncHandler(async (req, res) => {
     },
     { new: true }
   );
+
+  try {
+    if (institution?.email) {
+      const mailgenContent = registrationStatusMailgenContent({
+        recipientName: institution.name || "Institution",
+        isApproved: false,
+        rejectionReason: reason,
+        loginUrl: `${process.env.FRONTEND_URL}/login`,
+      });
+
+      await sendEmail({
+        email: institution.email,
+        subject: `Institution Registration Rejected`,
+        mailgenContent,
+      });
+    }
+  } catch (error) {
+    console.error("Failed to send rejection email:", error);
+    // Continue with the API response even if email fails
+  }
 
   return res
     .status(200)
