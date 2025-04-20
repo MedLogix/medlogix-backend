@@ -92,7 +92,6 @@ const createRequirement = asyncHandler(async (req, res) => {
 // @route   GET /api/requirements
 // @access  Private (Institution)
 const getOwnRequirements = asyncHandler(async (req, res) => {
-  const institutionId = req.user._id;
   const {
     page = 1,
     limit = 10,
@@ -109,10 +108,19 @@ const getOwnRequirements = asyncHandler(async (req, res) => {
       { path: "warehouseId", select: "name email contactPerson" }, // Populate warehouse details
       { path: "medicines.medicineId", select: "name manufacturer category" }, // Populate medicine details within the array
       { path: "logisticId", select: "shipmentId status receivedStatus" }, // Populate basic logistic info if available
+      { path: "institutionId", select: "name email contactPerson location" }, // Populate institution details
     ],
   };
 
-  const query = { institutionId, isDeleted: false };
+  const query = { isDeleted: false };
+
+  const userType = req.user.userType;
+
+  if (userType === USER_TYPES.WAREHOUSE) {
+    query.warehouseId = req.user._id;
+  } else if (userType === USER_TYPES.INSTITUTION) {
+    query.institutionId = req.user._id;
+  }
 
   const requirements = await Requirement.paginate(query, options);
 

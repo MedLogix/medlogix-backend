@@ -12,7 +12,10 @@ const router = Router();
 
 router
   .route("/")
-  .get(verifyJWTAndAuthorize([USER_TYPES.ADMIN]), getAllWarehouses);
+  .get(
+    verifyJWTAndAuthorize([USER_TYPES.ADMIN, USER_TYPES.INSTITUTION]),
+    getAllWarehouses
+  );
 router
   .route("/:id")
   .get(

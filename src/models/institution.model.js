@@ -6,8 +6,8 @@ import { USER_TYPES } from "../utils/constants.js";
 
 const InstitutionSchema = new mongoose.Schema(
   {
-    institutionCode: { type: String, unique: true }, // INST001
-    name: { type: String, required: true }, // Lucknow District Hospital
+    institutionCode: { type: String, unique: true, required: true }, // INST001
+    name: { type: String, required: true, unique: true }, // Lucknow District Hospital
     email: {
       type: String,
       required: true,

@@ -6,8 +6,8 @@ import mongoosePaginate from "mongoose-paginate-v2";
 
 const WarehouseSchema = new mongoose.Schema(
   {
-    warehouseCode: { type: String, required: true }, // WH001
-    name: { type: String, required: true }, // Lucknow Central Warehouse
+    warehouseCode: { type: String, required: true, unique: true }, // WH001
+    name: { type: String, required: true, unique: true }, // Lucknow Central Warehouse
     email: {
       type: String,
       required: true,

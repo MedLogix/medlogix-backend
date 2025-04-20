@@ -15,7 +15,10 @@ const router = Router();
 router
   .route("/")
   .post(verifyJWTAndAuthorize([USER_TYPES.INSTITUTION]), createRequirement)
-  .get(verifyJWTAndAuthorize([USER_TYPES.INSTITUTION]), getOwnRequirements);
+  .get(
+    verifyJWTAndAuthorize([USER_TYPES.INSTITUTION, USER_TYPES.WAREHOUSE]),
+    getOwnRequirements
+  );
 
 // Warehouse Routes
 router

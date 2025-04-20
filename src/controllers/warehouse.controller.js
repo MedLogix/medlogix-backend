@@ -1,6 +1,7 @@
 import { Warehouse } from "../models/warehouse.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { USER_TYPES } from "../utils/constants.js";
 
 const getAllWarehouses = asyncHandler(async (req, res) => {
   const {
@@ -12,7 +13,9 @@ const getAllWarehouses = asyncHandler(async (req, res) => {
     filters,
   } = req.query;
 
-  const _filters = JSON.parse(filters);
+  const isInstitution = req.user.userType === USER_TYPES.INSTITUTION;
+
+  const _filters = filters ? JSON.parse(filters) : {};
 
   const { verificationStatus } = _filters;
 
@@ -33,11 +36,16 @@ const getAllWarehouses = asyncHandler(async (req, res) => {
     query.verificationStatus = verificationStatus;
   }
 
+  if (isInstitution) {
+    query.verificationStatus = "verified";
+  }
+
   const options = {
     page: parseInt(page, 10),
     limit: parseInt(limit, 10),
     sort: { [sortBy]: sortOrder === "desc" ? -1 : 1 },
     lean: true, // Optional: improves performance
+    select: isInstitution ? "warehouseCode name" : "",
   };
 
   const result = await Warehouse.paginate(query, options);

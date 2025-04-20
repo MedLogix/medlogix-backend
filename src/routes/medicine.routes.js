@@ -11,7 +11,13 @@ import {
 
 const router = Router();
 
-router.use(verifyJWTAndAuthorize([USER_TYPES.ADMIN, USER_TYPES.WAREHOUSE]));
+router.use(
+  verifyJWTAndAuthorize([
+    USER_TYPES.ADMIN,
+    USER_TYPES.WAREHOUSE,
+    USER_TYPES.INSTITUTION,
+  ])
+);
 
 router.route("/").get(getAllMedicines);
 
