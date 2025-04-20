@@ -5,23 +5,24 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { USER_TYPES } from "../utils/constants.js";
 import { ApiError } from "../utils/ApiError.js";
 import mongoose from "mongoose";
+import { generateBatchNumber } from "../utils/lib.js";
 
 // @desc    Add new stock batch(es) to warehouse for a specific medicine
 // @route   POST /api/warehouse-stock
 // @access  Private (Warehouse)
 const addStock = asyncHandler(async (req, res) => {
+  const { medicineId, batch } = req.body;
+
   const {
-    medicineId,
-    batchName,
     quantity,
-    mfgDate,
     expiryDate,
-    packetSize,
     purchasePrice,
     sellingPrice,
     mrp,
     receivedDate,
-  } = req.body;
+    mfgDate,
+    packetSize,
+  } = batch;
 
   const warehouseId = req.user._id;
 
@@ -29,13 +30,14 @@ const addStock = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid Medicine ID format");
   }
   if (
-    !batchName ||
     !quantity ||
     !expiryDate ||
     !purchasePrice ||
     !sellingPrice ||
     !mrp ||
-    !receivedDate
+    !receivedDate ||
+    !mfgDate ||
+    !packetSize
   ) {
     throw new ApiError(400, "Missing required stock fields.");
   }
@@ -52,6 +54,8 @@ const addStock = asyncHandler(async (req, res) => {
       medicineId,
       isDeleted: false,
     }).session(session);
+
+    const batchName = generateBatchNumber();
 
     const newStockEntry = {
       batchName,
@@ -97,14 +101,14 @@ const addStock = asyncHandler(async (req, res) => {
           warehouseId,
           medicineId,
           batchName,
-          quantityAdded: quantity,
           mfgDate,
           expiryDate,
           purchasePrice,
           sellingPrice,
           mrp,
           receivedDate,
-          addedByUserId: req.user._id,
+          type: "purchase",
+          quantity: quantity,
         },
       ],
       { session }

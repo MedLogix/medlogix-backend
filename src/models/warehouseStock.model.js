@@ -16,8 +16,8 @@ const WarehouseStockSchema = new mongoose.Schema(
     stocks: [
       {
         batchName: { type: String, required: true }, // BATCH12345
-        quantity: { type: Number, required: true }, // Total Strips available
-        reservedQuantity: { type: Number, default: 0 }, // Total Strips reserved for pending shipments
+        quantity: { type: Number, required: true }, // Total Packets available
+        reservedQuantity: { type: Number, default: 0 }, // Total Packets reserved for pending shipments
         mfgDate: {
           type: Date,
         }, // 2026-05-01
