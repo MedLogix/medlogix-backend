@@ -534,6 +534,7 @@ const receiveShipment = asyncHandler(async (req, res) => {
           quantityReceived: batch.quantity, // This is the totalStrips equivalent
           // Calculate quantity breakdown (boxes, tablets, etc.) if possible/needed
           // These might need more info or calculation based on packetSize
+          currentQuantityInStrips: batch.quantity,
           quantity: {
             boxes: 0, // Placeholder - calculate if needed
             extra: 0, // Placeholder
