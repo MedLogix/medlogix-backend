@@ -21,6 +21,7 @@ import manufacturerRouter from "./routes/manufacturer.routes.js";
 import saltRouter from "./routes/salt.routes.js";
 import institutionRouter from "./routes/institution.routes.js";
 import logRouter from "./routes/log.routes.js";
+import analyticsRouter from "./routes/analytics.routes.js";
 import { ApiError } from "./utils/ApiError.js";
 
 // Swagger UI setup
@@ -84,6 +85,7 @@ app.use("/api/v1/salt", saltRouter);
 app.use("/api/v1/warehouse", warehouseRouter);
 app.use("/api/v1/warehouse-stock", warehouseStockRouter);
 app.use("/api/v1/logs", logRouter);
+app.use("/api/v1/analytics", analyticsRouter);
 // Mount new application routes
 
 // Serve Swagger UI

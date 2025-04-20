@@ -48,6 +48,16 @@ const WarehouseStockSchema = new mongoose.Schema(
   }
 );
 
+// --- Indexes for Dashboard Performance ---
+// Base filter for warehouse-specific queries & aggregations
+WarehouseStockSchema.index({ warehouseId: 1, isDeleted: 1 });
+// Grouping/lookup by medicine within a warehouse
+WarehouseStockSchema.index({ warehouseId: 1, medicineId: 1, isDeleted: 1 });
+// Efficiently query/sort by expiry date within aggregations (after $unwind)
+WarehouseStockSchema.index({ isDeleted: 1, "stocks.expiryDate": 1 });
+// Supports system-wide grouping by medicine (Admin Top Stocked - less common)
+// warehouseStockSchema.index({ medicineId: 1, isDeleted: 1 });
+
 WarehouseStockSchema.plugin(mongoosePaginate);
 
 export const WarehouseStock = mongoose.model(

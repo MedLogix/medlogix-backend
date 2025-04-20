@@ -34,6 +34,9 @@ const InstitutionUsageLogSchema = new mongoose.Schema(
   }
 );
 
+// Index for Institution dashboard: Monthly Usage Trend
+InstitutionUsageLogSchema.index({ institutionId: 1, type: 1, createdAt: 1 });
+
 InstitutionUsageLogSchema.plugin(aggregatePaginate);
 
 export const InstitutionUsageLog = mongoose.model(

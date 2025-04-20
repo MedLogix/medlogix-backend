@@ -44,6 +44,18 @@ const InstitutionStockSchema = new mongoose.Schema(
   }
 );
 
+// --- Indexes for Dashboard Performance ---
+// Base filter for institution-specific queries & aggregations
+InstitutionStockSchema.index({ institutionId: 1, isDeleted: 1 });
+// Grouping/lookup by medicine within an institution
+InstitutionStockSchema.index({ institutionId: 1, medicineId: 1, isDeleted: 1 });
+// Efficiently query/sort by expiry date within aggregations (after $unwind)
+InstitutionStockSchema.index({
+  institutionId: 1,
+  isDeleted: 1,
+  "stocks.expiryDate": 1,
+}); // Added institutionId for more specificity
+
 InstitutionStockSchema.plugin(mongoosePaginate);
 
 export const InstitutionStock = mongoose.model(

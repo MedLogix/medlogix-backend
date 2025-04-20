@@ -55,6 +55,9 @@ const InstitutionSchema = new mongoose.Schema(
   }
 );
 
+// Add index for verificationStatus to optimize dashboard queries
+InstitutionSchema.index({ verificationStatus: 1 });
+
 InstitutionSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
   this.password = await bcrypt.hash(this.password, 10);

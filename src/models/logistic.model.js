@@ -74,6 +74,18 @@ const LogisticsSchema = new mongoose.Schema(
   }
 );
 
+// --- Indexes for Dashboard Performance ---
+// Admin: System Logistics Status
+LogisticsSchema.index({ isDeleted: 1, status: 1 });
+// Admin: Monthly Activity (using updatedAt)
+LogisticsSchema.index({ status: 1, updatedAt: 1 });
+// Institution: Incoming Shipments KPI
+LogisticsSchema.index({ institutionId: 1, receivedStatus: 1 });
+// Warehouse: Outgoing Shipments Status & KPIs
+LogisticsSchema.index({ warehouseId: 1, status: 1 });
+// Warehouse: Monthly Fulfillment (based on Logistic creation)
+LogisticsSchema.index({ warehouseId: 1, createdAt: 1 });
+
 LogisticsSchema.plugin(mongoosePaginate);
 
 export const Logistic = mongoose.model("Logistic", LogisticsSchema);

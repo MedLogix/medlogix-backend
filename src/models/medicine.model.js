@@ -35,6 +35,9 @@ const MedicineSchema = new mongoose.Schema(
   }
 );
 
+// Index for dashboard query performance
+MedicineSchema.index({ isDeleted: 1 });
+
 MedicineSchema.plugin(mongoosePaginate);
 
 export const Medicine = mongoose.model("Medicine", MedicineSchema);

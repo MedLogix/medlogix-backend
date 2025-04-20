@@ -70,6 +70,18 @@ const requirementSchema = new mongoose.Schema(
   }
 );
 
+// --- Indexes for Dashboard Performance ---
+// Admin: System Requirement Status
+requirementSchema.index({ isDeleted: 1, overallStatus: 1 });
+// Admin: Monthly Activity
+requirementSchema.index({ createdAt: 1 });
+// Institution: My Requirement Status & KPIs
+requirementSchema.index({ institutionId: 1, overallStatus: 1 });
+// Warehouse: Incoming Requirement Status & KPIs
+requirementSchema.index({ warehouseId: 1, overallStatus: 1 });
+// Warehouse: Monthly Fulfillment (Alternative: based on Requirement status change)
+// requirementSchema.index({ warehouseId: 1, overallStatus: 1, updatedAt: 1 });
+
 requirementSchema.plugin(mongoosePaginate);
 
 export const Requirement = mongoose.model("Requirement", requirementSchema);
