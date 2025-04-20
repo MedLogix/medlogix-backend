@@ -1,13 +1,14 @@
-import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiError } from "../utils/ApiError.js";
-import { ApiResponse } from "../utils/ApiResponse.js";
+import mongoose from "mongoose";
+import { InstitutionStock } from "../models/institutionStock.model.js";
+import { InstitutionUsageLog } from "../models/institutionUsageLog.model.js";
 import { Logistic } from "../models/logistic.model.js";
 import { Requirement } from "../models/requirement.model.js";
+import { WarehouseReceiptLog } from "../models/warehouseReceiptLog.model.js";
 import { WarehouseStock } from "../models/warehouseStock.model.js";
-import { InstitutionStock } from "../models/institutionStock.model.js";
-import mongoose from "mongoose";
+import { ApiError } from "../utils/ApiError.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 import { USER_TYPES } from "../utils/constants.js"; // Import USER_TYPES
-import { InstitutionUsageLog } from "../models/institutionUsageLog.model.js";
 
 // Helper function to generate a unique shipment ID (example)
 const generateShipmentId = async () => {
@@ -525,6 +526,7 @@ const receiveShipment = asyncHandler(async (req, res) => {
       }
 
       const institutionUsageLogs = [];
+      const warehouseReceiptLogs = [];
 
       // Add received batches to the InstitutionStock stocks array
       for (const batch of shippedMed.stocks) {
@@ -551,15 +553,25 @@ const receiveShipment = asyncHandler(async (req, res) => {
         });
 
         institutionUsageLogs.push({
+          institutionId: institutionId,
           medicineId: medicineId,
           batchName: batch.batchNumber,
           quantity: batch.quantity,
           type: "addition",
         });
+
+        warehouseReceiptLogs.push({
+          warehouseId: logistic.warehouse,
+          medicineId: medicineId,
+          batchName: batch.batchNumber,
+          quantity: batch.quantity,
+          type: "sale",
+        });
       }
       instStock.markModified("stocks");
       await instStock.save({ session });
       await InstitutionUsageLog.insertMany(institutionUsageLogs, { session });
+      await WarehouseReceiptLog.insertMany(warehouseReceiptLogs, { session });
     }
 
     // Save the updated logistic document itself
@@ -588,10 +600,10 @@ const receiveShipment = asyncHandler(async (req, res) => {
 
 export {
   createShipment,
-  getOwnShipments,
-  getIncomingShipments,
   getAllShipmentsAdmin,
+  getIncomingShipments,
+  getOwnShipments,
   getShipmentById,
-  updateShipmentStatus,
   receiveShipment,
+  updateShipmentStatus,
 };

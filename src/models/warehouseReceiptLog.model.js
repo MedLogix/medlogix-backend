@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import mongoosePaginate from "mongoose-paginate-v2";
+import aggregatePaginate from "mongoose-aggregate-paginate-v2";
 
 const WarehouseReceiptLogSchema = new mongoose.Schema(
   {
@@ -28,19 +28,13 @@ const WarehouseReceiptLogSchema = new mongoose.Schema(
       enum: ["purchase", "sale"],
       required: true,
     },
-    mfgDate: { type: Date },
-    expiryDate: { type: Date, required: true },
-    purchasePrice: { type: Number, required: true },
-    sellingPrice: { type: Number, required: true },
-    mrp: { type: Number, required: true },
-    receivedDate: { type: Date, required: true },
   },
   {
     timestamps: true,
   }
 );
 
-WarehouseReceiptLogSchema.plugin(mongoosePaginate);
+WarehouseReceiptLogSchema.plugin(aggregatePaginate);
 
 export const WarehouseReceiptLog = mongoose.model(
   "WarehouseReceiptLog",

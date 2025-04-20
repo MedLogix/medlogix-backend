@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import mongoosePaginate from "mongoose-paginate-v2";
+import aggregatePaginate from "mongoose-aggregate-paginate-v2";
 
 const InstitutionUsageLogSchema = new mongoose.Schema(
   {
@@ -34,7 +34,7 @@ const InstitutionUsageLogSchema = new mongoose.Schema(
   }
 );
 
-InstitutionUsageLogSchema.plugin(mongoosePaginate);
+InstitutionUsageLogSchema.plugin(aggregatePaginate);
 
 export const InstitutionUsageLog = mongoose.model(
   "InstitutionUsageLog",
