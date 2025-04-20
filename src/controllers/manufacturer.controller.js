@@ -1,4 +1,4 @@
-import { Manufacturer } from "../models/Manufacturer.model.js";
+import { Manufacturer } from "../models/manufacturer.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
