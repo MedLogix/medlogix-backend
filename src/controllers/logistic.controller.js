@@ -18,27 +18,6 @@ const generateShipmentId = async () => {
   return `${prefix}${timestamp}${randomPart}`;
 };
 
-// Helper function to determine logistic status based on requirement
-const calculateShippedStatus = (requirement, shippedItemsCount) => {
-  // Check if all approved items are being shipped in this logistic entry
-  const totalApprovedItems = requirement.medicines.filter(
-    (m) => m.status === "Approved" && m.approvedQuantity > 0
-  ).length;
-  if (
-    shippedItemsCount === totalApprovedItems &&
-    requirement.medicines.every(
-      (m) => m.status === "Approved" || m.status === "Rejected"
-    )
-  ) {
-    return "Shipped"; // Fully shipped
-  } else if (shippedItemsCount > 0) {
-    return "Partially Shipped";
-  } else {
-    // This case shouldn't happen if validation is correct
-    return requirement.overallStatus; // Keep existing status if nothing shipped
-  }
-};
-
 // @desc    Create a new shipment for an approved requirement
 // @route   POST /api/logistics
 // @access  Private (Warehouse)
@@ -77,7 +56,7 @@ const createShipment = asyncHandler(async (req, res) => {
     }
 
     // 4. Validate Requirement Status
-    const allowedStatuses = ["Fully Approved", "Partially Approved"];
+    const allowedStatuses = ["Approved"];
     if (!allowedStatuses.includes(requirement.overallStatus)) {
       throw new ApiError(
         400,
@@ -91,7 +70,6 @@ const createShipment = asyncHandler(async (req, res) => {
     }
 
     const logisticMedicines = [];
-    let shippedItemsCount = 0;
 
     // 6. Prepare medicines array for Logistic model and update WarehouseStock
     for (const reqMed of requirement.medicines) {
@@ -115,8 +93,8 @@ const createShipment = asyncHandler(async (req, res) => {
         );
       }
 
-      // Sort batches by FIFO (using createdAt)
-      warehouseStock.stocks.sort((a, b) => a.createdAt - b.createdAt);
+      // Sort batches by FEFO (using expiryDate, ascending)
+      warehouseStock.stocks.sort((a, b) => a.expiryDate - b.expiryDate);
 
       let reservedAvailable = 0;
       warehouseStock.stocks.forEach(
@@ -169,7 +147,6 @@ const createShipment = asyncHandler(async (req, res) => {
           medicine: medicineId,
           stocks: logisticMedicineBatches,
         });
-        shippedItemsCount++;
       }
       // Mark stock as modified and save
       warehouseStock.markModified("stocks");
@@ -202,10 +179,8 @@ const createShipment = asyncHandler(async (req, res) => {
 
     // 8. Update the Requirement
     requirement.logisticId = newLogistic._id;
-    requirement.overallStatus = calculateShippedStatus(
-      requirement,
-      shippedItemsCount
-    );
+    // Directly set status to Shipped as per dataflow (no partial shipments)
+    requirement.overallStatus = "Shipped";
     await requirement.save({ session });
 
     // 9. Commit Transaction
@@ -448,9 +423,11 @@ const updateShipmentStatus = asyncHandler(async (req, res) => {
 
   // Potentially update timestamps (e.g., if status is 'Delivered', update arrivedAt?)
   // This might be better handled by separate endpoints or based on events.
-  // Example: if (status === 'Delivered' && !logistic.vehicles[0]?.timestamps?.arrivedAt) {
-  //    logistic.vehicles[0].timestamps.arrivedAt = new Date();
-  // }
+  if (status === "Delivered" && !logistic.vehicles[0]?.timestamps?.arrivedAt) {
+    logistic.vehicles.forEach((vehicle) => {
+      vehicle.timestamps.arrivedAt = new Date();
+    });
+  }
 
   await logistic.save();
 
@@ -474,7 +451,6 @@ const updateShipmentStatus = asyncHandler(async (req, res) => {
 const receiveShipment = asyncHandler(async (req, res) => {
   const { logisticId } = req.params;
   const institutionId = req.user._id;
-  const { arrivedAt, unloadedAt } = req.body; // Optional timestamps from institution
 
   if (!mongoose.isValidObjectId(logisticId)) {
     throw new ApiError(400, "Invalid Logistic ID format");
@@ -516,10 +492,9 @@ const receiveShipment = asyncHandler(async (req, res) => {
     logistic.receivedStatus = "Received";
     // Update timestamps if provided (assuming single vehicle for simplicity)
     if (logistic.vehicles && logistic.vehicles.length > 0) {
-      if (arrivedAt)
-        logistic.vehicles[0].timestamps.arrivedAt = new Date(arrivedAt);
-      if (unloadedAt)
-        logistic.vehicles[0].timestamps.unloadedAt = new Date(unloadedAt);
+      logistic.vehicles.forEach((vehicle) => {
+        vehicle.timestamps.unloadedAt = new Date();
+      });
       logistic.markModified("vehicles");
     }
 
