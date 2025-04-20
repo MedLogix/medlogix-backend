@@ -1,11 +1,9 @@
 import { Router } from "express";
 import {
   addManualStock,
-  getOwnStock,
   getAllStockAdmin,
+  getOwnStock,
   getStockById,
-  updateStockDetails,
-  deleteStock,
   logUsage,
 } from "../controllers/institutionStock.controller.js";
 import { verifyJWTAndAuthorize } from "../middlewares/auth.middleware.js";
@@ -27,9 +25,7 @@ router
   .get(
     verifyJWTAndAuthorize([USER_TYPES.INSTITUTION, USER_TYPES.ADMIN]),
     getStockById
-  )
-  .put(verifyJWTAndAuthorize([USER_TYPES.INSTITUTION]), updateStockDetails)
-  .delete(verifyJWTAndAuthorize([USER_TYPES.INSTITUTION]), deleteStock);
+  );
 
 // Admin Routes
 router

@@ -217,84 +217,24 @@ const getStockById = asyncHandler(async (req, res) => {
     );
 });
 
-// @desc    Update stock details (non-quantity)
-// @route   PUT /api/institution-stock/:stockId // Or batch specific?
-// @access  Private (Institution)
-const updateStockDetails = asyncHandler(async (req, res) => {
-  // TODO: Implement logic
-  // 1. Get stockId (and maybe batch identifier) from req.params
-  // 2. Get updated fields from req.body
-  // 3. Find InstitutionStock
-  // 4. Authorize: Ensure stock belongs to req.user._id (institutionId)
-  // 5. Update the specific batch details
-  // 6. Save and return updated stock
-  res.status(501).json({ message: "Not Implemented" });
-});
-
-// @desc    Delete an institution stock item (document) by marking as deleted
-// @route   DELETE /api/institution-stock/:stockId
-// @access  Private (Institution)
-const deleteStock = asyncHandler(async (req, res) => {
-  const { stockId } = req.params;
-  const institutionId = req.user._id;
-
-  if (!mongoose.isValidObjectId(stockId)) {
-    throw new ApiError(400, "Invalid Stock ID format");
-  }
-
-  // Find and update, ensuring ownership and not already deleted
-  const deletedStock = await InstitutionStock.findOneAndUpdate(
-    {
-      _id: stockId,
-      institutionId: institutionId, // Ensure ownership
-      isDeleted: false,
-    },
-    { $set: { isDeleted: true } },
-    { new: false } // Don't need the document back, just confirmation
-  );
-
-  if (!deletedStock) {
-    // Check if it existed at all but was not owned or already deleted
-    const stockExists = await InstitutionStock.findById(stockId);
-    if (!stockExists || stockExists.isDeleted) {
-      throw new ApiError(
-        404,
-        "Institution stock record not found or already deleted."
-      );
-    } else {
-      // Must not belong to the user
-      throw new ApiError(
-        403,
-        "Forbidden: You cannot delete this stock record."
-      );
-    }
-  }
-
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        { _id: stockId },
-        "Institution stock record deleted successfully"
-      )
-    );
-});
-
 /**
- * @description Log stock usage for an institution
+ * @description Log stock usage for an institution using FEFO (First-Expired, First-Out)
  * @route POST /api/v1/institution-stock/log-usage
  * @access Private (Institution)
  */
 const logUsage = asyncHandler(async (req, res) => {
-  const { medicineId, quantityUsed, batchName, notes } = req.body;
+  // 1. Get stockId and quantityUsed from request body
+  const { stockId, quantityUsed: quantityToDecrement } = req.body;
   const institutionId = req.user._id; // Assuming user ID is attached by auth middleware
 
-  // 1. Validate input
-  if (!medicineId || !quantityUsed) {
-    throw new ApiError(400, "Medicine ID and quantity used are required.");
+  // 2. Validate input
+  if (!stockId || !quantityToDecrement) {
+    throw new ApiError(400, "Stock ID and quantity used are required.");
   }
-  if (quantityUsed <= 0) {
+  if (!mongoose.isValidObjectId(stockId)) {
+    throw new ApiError(400, "Invalid Stock ID format.");
+  }
+  if (quantityToDecrement <= 0) {
     throw new ApiError(400, "Quantity used must be a positive number.");
   }
 
@@ -302,101 +242,120 @@ const logUsage = asyncHandler(async (req, res) => {
   session.startTransaction();
 
   try {
-    // 2. Find the institution's stock for the medicine
+    // 3. Find the specific institution's stock document
     const stockDoc = await InstitutionStock.findOne({
-      institutionId,
-      medicineId,
+      _id: stockId,
+      institutionId, // Ensure the stock belongs to the requesting institution
       isDeleted: false,
     }).session(session);
 
     if (!stockDoc) {
       throw new ApiError(
         404,
-        "Stock not found for this medicine in the institution."
+        "Stock record not found for this institution or specified ID."
       );
     }
 
-    // 3. Implement logic to find the correct batch(es) and decrement quantity
-    //    - If batchName is provided, find that specific batch.
-    //    - If batchName is NOT provided, apply FIFO (First-In, First-Out) or FEFO (First-Expired, First-Out)
-    //      by sorting the stockDoc.stocks array (e.g., by receivedDate or expiryDate).
-    //    - Decrement 'currentQuantityInStrips' from the chosen batch(es).
-    //    - Handle cases where usage spans multiple batches.
-    //    - Ensure sufficient stock is available across relevant batches.
-
-    // !!! Placeholder for complex decrement logic !!!
-    // This part needs careful implementation based on chosen strategy (FIFO/FEFO/Specific Batch)
-    // For now, let's assume a simple case: find batch by name if provided, else error.
-    let remainingToDecrement = quantityUsed;
-    let actualBatchName = batchName; // Will be determined if not provided
-
-    if (batchName) {
-      const batchIndex = stockDoc.stocks.findIndex(
-        (b) => b.batchName === batchName && b.currentQuantityInStrips > 0
-      );
-      if (batchIndex === -1) {
-        throw new ApiError(
-          400,
-          `Batch ${batchName} not found or has no stock.`
-        );
-      }
-      if (
-        stockDoc.stocks[batchIndex].currentQuantityInStrips <
-        remainingToDecrement
-      ) {
-        throw new ApiError(
-          400,
-          `Insufficient stock in batch ${batchName}. Available: ${stockDoc.stocks[batchIndex].currentQuantityInStrips}`
-        );
-      }
-      stockDoc.stocks[batchIndex].currentQuantityInStrips -=
-        remainingToDecrement;
-      remainingToDecrement = 0;
-    } else {
-      // TODO: Implement FIFO or FEFO logic here if batchName is not provided
-      // Sort batches (e.g., by receivedDate for FIFO)
-      // Iterate through sorted batches, decrementing stock until quantityUsed is met
-      // Update actualBatchName if needed for logging
-      throw new ApiError(
-        400,
-        "Batch name is required for logging usage (FIFO/FEFO not implemented yet)."
-      );
-    }
-
-    if (remainingToDecrement > 0) {
-      // This should ideally be handled by the FIFO/FEFO loop
-      throw new ApiError(
-        400,
-        "Insufficient total stock available for this medicine."
-      );
-    }
-
-    // 4. Save the updated stock document
-    await stockDoc.save({ session });
-
-    // 5. Create the usage log entry
-    await InstitutionUsageLog.create(
-      [
-        {
-          institutionId,
-          medicineId,
-          batchName: actualBatchName, // Log the actual batch used
-          quantityUsed,
-          loggedByUserId: req.user._id, // Log who performed the action
-          notes,
-        },
-      ],
-      { session }
+    // 4. Calculate total available quantity across all batches with stock
+    const totalAvailable = stockDoc.stocks.reduce(
+      (sum, batch) => sum + (batch.currentQuantityInStrips || 0),
+      0
     );
 
-    // 6. Commit transaction
+    // 5. Check if sufficient total stock is available
+    if (totalAvailable < quantityToDecrement) {
+      throw new ApiError(
+        400,
+        `Insufficient total stock available. Requested: ${quantityToDecrement}, Available: ${totalAvailable}`
+      );
+    }
+
+    // 6. Implement FEFO (First-Expired, First-Out) logic
+    // Filter out batches with no stock and sort by expiryDate (ascending)
+    const sortedBatches = stockDoc.stocks
+      .filter((batch) => batch.currentQuantityInStrips > 0)
+      .sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate));
+
+    let remainingToDecrement = quantityToDecrement;
+    const usageLogEntries = []; // To store log entries for each affected batch
+
+    for (const batch of sortedBatches) {
+      if (remainingToDecrement <= 0) break; // Stop if the required quantity has been decremented
+
+      const quantityToDeductFromBatch = Math.min(
+        remainingToDecrement,
+        batch.currentQuantityInStrips
+      );
+
+      if (quantityToDeductFromBatch > 0) {
+        // Find the original index in the stockDoc.stocks array to update
+        const originalBatchIndex = stockDoc.stocks.findIndex((b) =>
+          b._id.equals(batch._id)
+        );
+
+        if (originalBatchIndex !== -1) {
+          stockDoc.stocks[originalBatchIndex].currentQuantityInStrips -=
+            quantityToDeductFromBatch;
+
+          // Prepare log entry for this batch
+          usageLogEntries.push({
+            institutionId,
+            medicineId: stockDoc.medicineId, // Get medicineId from the parent doc
+            batchName: batch.batchName,
+            type: "usage",
+            quantity: quantityToDeductFromBatch,
+          });
+
+          remainingToDecrement -= quantityToDeductFromBatch;
+        }
+      }
+    }
+
+    // This check should ideally not be needed if the initial total check passes,
+    // but serves as a safeguard.
+    if (remainingToDecrement > 0) {
+      await session.abortTransaction(); // Abort if something went wrong
+      console.error(
+        "FEFO Logic Error: remainingToDecrement > 0 despite sufficient initial stock",
+        { stockId, quantityToDecrement, remainingToDecrement }
+      );
+      throw new ApiError(500, "Internal error during stock deduction logic.");
+    }
+
+    // Mark the 'stocks' array as modified for Mongoose
+    stockDoc.markModified("stocks");
+
+    // 7. Save the updated stock document
+    await stockDoc.save({ session });
+
+    // 8. Create the usage log entries
+    if (usageLogEntries.length > 0) {
+      await InstitutionUsageLog.create(usageLogEntries, { session });
+    }
+
+    // 9. Commit transaction
     await session.commitTransaction();
+
+    // Populate medicine details for the response
+    await stockDoc.populate({
+      path: "medicineId",
+      select: "name manufacturer category unit",
+    });
 
     return res
       .status(200)
-      .json(new ApiResponse(200, stockDoc, "Stock usage logged successfully."));
+      .json(
+        new ApiResponse(
+          200,
+          stockDoc,
+          "Stock usage logged successfully using FEFO."
+        )
+      );
   } catch (error) {
     await session.abortTransaction();
+    // Log the detailed error for debugging
+    console.error("Error logging stock usage:", error);
+    // Rethrow a user-friendly error
     throw new ApiError(
       error.statusCode || 500,
       error.message || "Failed to log stock usage"
@@ -411,7 +370,5 @@ export {
   getOwnStock,
   getAllStockAdmin,
   getStockById,
-  updateStockDetails,
-  deleteStock,
   logUsage,
 };

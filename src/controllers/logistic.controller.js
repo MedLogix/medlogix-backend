@@ -7,6 +7,7 @@ import { WarehouseStock } from "../models/warehouseStock.model.js";
 import { InstitutionStock } from "../models/institutionStock.model.js";
 import mongoose from "mongoose";
 import { USER_TYPES } from "../utils/constants.js"; // Import USER_TYPES
+import { InstitutionUsageLog } from "../models/institutionUsageLog.model.js";
 
 // Helper function to generate a unique shipment ID (example)
 const generateShipmentId = async () => {
@@ -523,6 +524,8 @@ const receiveShipment = asyncHandler(async (req, res) => {
         });
       }
 
+      const institutionUsageLogs = [];
+
       // Add received batches to the InstitutionStock stocks array
       for (const batch of shippedMed.stocks) {
         // Map logistic batch data to InstitutionStock batch schema
@@ -546,9 +549,17 @@ const receiveShipment = asyncHandler(async (req, res) => {
           receivedDate: receivedDate,
           createdAt: new Date(), // Explicitly set createdAt for the batch entry
         });
+
+        institutionUsageLogs.push({
+          medicineId: medicineId,
+          batchName: batch.batchNumber,
+          quantity: batch.quantity,
+          type: "addition",
+        });
       }
       instStock.markModified("stocks");
       await instStock.save({ session });
+      await InstitutionUsageLog.insertMany(institutionUsageLogs, { session });
     }
 
     // Save the updated logistic document itself
