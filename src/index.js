@@ -13,26 +13,26 @@ import { sendExpiryAlerts } from "./tasks/expiryAlerts.js";
 
 // routers
 import cookieParser from "cookie-parser";
+import analyticsRouter from "./routes/analytics.routes.js";
 import authRouter from "./routes/auth.routes.js";
 import heathcheckRouter from "./routes/healthcheck.routes.js";
-import requirementRouter from "./routes/requirement.routes.js";
-import logisticRouter from "./routes/logistic.routes.js";
-import warehouseStockRouter from "./routes/warehouseStock.routes.js";
-import institutionStockRouter from "./routes/institutionStock.routes.js";
-import warehouseRouter from "./routes/warehouse.routes.js";
-import medicineRouter from "./routes/medicine.routes.js";
-import manufacturerRouter from "./routes/manufacturer.routes.js";
-import saltRouter from "./routes/salt.routes.js";
 import institutionRouter from "./routes/institution.routes.js";
+import institutionStockRouter from "./routes/institutionStock.routes.js";
 import logRouter from "./routes/log.routes.js";
-import analyticsRouter from "./routes/analytics.routes.js";
+import logisticRouter from "./routes/logistic.routes.js";
+import manufacturerRouter from "./routes/manufacturer.routes.js";
+import medicineRouter from "./routes/medicine.routes.js";
+import requirementRouter from "./routes/requirement.routes.js";
+import saltRouter from "./routes/salt.routes.js";
+import warehouseRouter from "./routes/warehouse.routes.js";
+import warehouseStockRouter from "./routes/warehouseStock.routes.js";
 import { ApiError } from "./utils/ApiError.js";
 
 // Swagger UI setup
-import swaggerUi from "swagger-ui-express";
-import YAML from "yamljs";
 import path from "path";
+import swaggerUi from "swagger-ui-express";
 import { fileURLToPath } from "url";
+import YAML from "yamljs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
