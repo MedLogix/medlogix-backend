@@ -1,0 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# API Definition
+
+The backend API is defined in the OpenAPI specification file: `[openapi.yaml](mdc:openapi.yaml)`.

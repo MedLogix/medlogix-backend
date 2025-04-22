@@ -297,6 +297,69 @@ const registrationStatusMailgenContent = ({
   };
 };
 
+/**
+ * Generates the email content for a stock expiry alert.
+ * @param {string} recipientName Name of the institution/warehouse contact receiving the mail.
+ * @param {Array<object>} expiringItems Array of objects, each containing details of an expiring item (e.g., { medicineName: string, batchName: string, expiryDate: string, quantity: number, unit: string }).
+ * @param {string} entityName Name of the institution or warehouse.
+ * @param {string} [viewStockUrl] Optional link for the recipient to view their stock.
+ * @returns {Mailgen.Content}
+ */
+const stockExpiryAlertMailgenContent = ({
+  recipientName,
+  expiringItems,
+  entityName,
+  viewStockUrl = "", // Optional: Link to stock management page
+}) => {
+  // Prepare the table data
+  const tableData = expiringItems.map((item) => ({
+    Medicine: item.medicineName,
+    Batch: item.batchName,
+    "Expiry Date": item.expiryDate, // Assuming pre-formatted date string
+    Quantity: `${item.quantity} ${item.unit}`,
+  }));
+
+  const mailContent = {
+    body: {
+      name: recipientName,
+      intro: [
+        `This is an alert regarding stock items expiring soon at ${entityName}.`,
+        `The following items are set to expire within the next month or are already expired:`,
+      ],
+      table: {
+        data: tableData,
+        columns: {
+          // Optionally customize column widths
+          // customWidth: {
+          //   Medicine: '20%',
+          //   'Expiry Date': '15%'
+          // }
+        },
+      },
+      outro: [
+        "Please review your inventory and take appropriate action for these items.",
+        viewStockUrl
+          ? "You can manage your stock here:"
+          : "Consider rotating stock or planning for disposal/return as needed.",
+      ],
+    },
+  };
+
+  // Add action button if URL is provided
+  if (viewStockUrl) {
+    mailContent.body.action = {
+      instructions: "Click the button below to view your current stock levels:",
+      button: {
+        color: "#FFC107", // Warning color
+        text: "View Stock",
+        link: viewStockUrl,
+      },
+    };
+  }
+
+  return mailContent;
+};
+
 export {
   sendEmail,
   emailVerificationMailgenContent,
@@ -307,4 +370,5 @@ export {
   shipmentDeliveredMailgenContent,
   shipmentReceivedMailgenContent,
   registrationStatusMailgenContent,
+  stockExpiryAlertMailgenContent,
 };

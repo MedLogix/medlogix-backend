@@ -1,0 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Docker Setup
+
+The application can be containerized using `[Dockerfile](mdc:Dockerfile)` and orchestrated with `[docker-compose.yml](mdc:docker-compose.yml)`. Build and push details are in `[build_and_push.sh](mdc:build_and_push.sh)`.

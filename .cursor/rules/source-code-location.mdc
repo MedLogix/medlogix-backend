@@ -1,0 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Source Code Location
+
+All primary application source code resides in the `[src/](mdc:src)` directory.

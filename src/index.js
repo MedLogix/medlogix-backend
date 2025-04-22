@@ -7,6 +7,10 @@ import helmet from "helmet";
 import connectDB from "./db/index.js";
 import { errorHandler } from "./middlewares/error.middleware.js";
 
+// Import cron and the task function
+import cron from "node-cron";
+import { sendExpiryAlerts } from "./tasks/expiryAlerts.js";
+
 // routers
 import cookieParser from "cookie-parser";
 import authRouter from "./routes/auth.routes.js";
@@ -95,6 +99,20 @@ app.use(errorHandler);
 
 const startServer = async () => {
   await connectDB();
+
+  cron.schedule(
+    "0 3 * * *", // Run daily at 3:00 AM
+    () => {
+      console.log("Running scheduled task: Send Expiry Alerts");
+      sendExpiryAlerts();
+    },
+    {
+      scheduled: true,
+      timezone: "Asia/Kolkata",
+    }
+  );
+  console.log("Expiry alert task scheduled to run daily at 3:00 AM IST.");
+
   app.listen(process.env.PORT, () => {
     console.log(`🚀 Server is listening on port ${process.env.PORT}...`);
   });

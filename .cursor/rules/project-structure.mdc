@@ -1,0 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Project Structure Guide
+
+The main application logic is likely within the `src/` directory. Key project configuration is defined in `[package.json](mdc:package.json)`.

@@ -1,0 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Documentation Files
+
+Important documentation can be found in `[README.md](mdc:README.md)`, `[APPLICATION_DOCUMENTATION.md](mdc:APPLICATION_DOCUMENTATION.md)`, `[dataflow.md](mdc:dataflow.md)`, and `[flow.md](mdc:flow.md)`.
