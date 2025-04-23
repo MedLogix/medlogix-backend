@@ -132,6 +132,28 @@ const loginUser = asyncHandler(async (req, res) => {
     );
   }
 
+  if (
+    (userType === USER_TYPES.INSTITUTION ||
+      userType === USER_TYPES.WAREHOUSE) &&
+    user.verificationStatus === "pending"
+  ) {
+    throw new ApiError(
+      401,
+      `${userType.charAt(0).toUpperCase() + userType.slice(1)} is not verified yet. Please wait for approval.`
+    );
+  }
+
+  if (
+    (userType === USER_TYPES.INSTITUTION ||
+      userType === USER_TYPES.WAREHOUSE) &&
+    user.verificationStatus === "rejected"
+  ) {
+    throw new ApiError(
+      401,
+      `${userType.charAt(0).toUpperCase() + userType.slice(1)} is rejected. Please contact support.`
+    );
+  }
+
   const isPasswordValid = await user.isPasswordCorrect(password);
   if (!isPasswordValid) {
     throw new ApiError(401, `Invalid ${userType} credentials`);
